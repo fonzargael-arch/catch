@@ -1,384 +1,336 @@
 --[[
     🔍 GAME STRUCTURE SCANNER
     ═══════════════════════════════════════
-    Compatible con Xeno Executor
-    Click en resultados para copiar
+    Compatible con Xeno - SIN CoreGui
 ]]
 
 print("═══════════════════════════════════")
-print("🔍 Starting Game Scanner...")
+print("🔍 Starting Scanner...")
 print("═══════════════════════════════════")
 
--- Wait for game
 repeat task.wait() until game:IsLoaded()
 
--- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
--- Safe clipboard function
-local function copyToClipboard(text)
-    local success, err = pcall(function()
+-- Safe clipboard
+local function copyText(text)
+    pcall(function()
         if setclipboard then
             setclipboard(text)
-            return true
         elseif toclipboard then
             toclipboard(text)
-            return true
         end
     end)
-    return success
 end
 
 -- Create GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ScannerGUI"
+ScreenGui.Name = "Scanner"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
-pcall(function()
-    ScreenGui.Parent = player:WaitForChild("PlayerGui")
-end)
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 700, 0, 500)
+Main.Position = UDim2.new(0.5, -350, 0.5, -250)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
 
--- Main Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 700, 0, 500)
-MainFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+local Corner1 = Instance.new("UICorner")
+Corner1.CornerRadius = UDim.new(0, 10)
+Corner1.Parent = Main
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = MainFrame
-
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(0, 255, 255)
-Stroke.Thickness = 3
-Stroke.Parent = MainFrame
+local Stroke1 = Instance.new("UIStroke")
+Stroke1.Color = Color3.fromRGB(0, 255, 255)
+Stroke1.Thickness = 3
+Stroke1.Parent = Main
 
 -- Title
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Title.Text = "🔍 GAME STRUCTURE SCANNER"
+Title.Text = "🔍 GAME SCANNER"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 20
 Title.BorderSizePixel = 0
-Title.Parent = MainFrame
+Title.Parent = Main
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 10)
-TitleCorner.Parent = Title
+local Corner2 = Instance.new("UICorner")
+Corner2.CornerRadius = UDim.new(0, 10)
+Corner2.Parent = Title
 
--- Close Button
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 35, 0, 35)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-CloseBtn.Parent = Title
+-- Close
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0, 35, 0, 35)
+Close.Position = UDim2.new(1, -40, 0, 5)
+Close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+Close.Text = "X"
+Close.TextColor3 = Color3.new(1, 1, 1)
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 18
+Close.Parent = Title
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 8)
-CloseCorner.Parent = CloseBtn
+local Corner3 = Instance.new("UICorner")
+Corner3.CornerRadius = UDim.new(0, 8)
+Corner3.Parent = Close
 
-CloseBtn.MouseButton1Click:Connect(function()
+Close.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Buttons Frame
-local ButtonsFrame = Instance.new("Frame")
-ButtonsFrame.Size = UDim2.new(1, -20, 0, 50)
-ButtonsFrame.Position = UDim2.new(0, 10, 0, 55)
-ButtonsFrame.BackgroundTransparency = 1
-ButtonsFrame.Parent = MainFrame
+-- Buttons
+local BtnFrame = Instance.new("Frame")
+BtnFrame.Size = UDim2.new(1, -20, 0, 50)
+BtnFrame.Position = UDim2.new(0, 10, 0, 55)
+BtnFrame.BackgroundTransparency = 1
+BtnFrame.Parent = Main
 
-local ButtonLayout = Instance.new("UIListLayout")
-ButtonLayout.FillDirection = Enum.FillDirection.Horizontal
-ButtonLayout.Padding = UDim.new(0, 8)
-ButtonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-ButtonLayout.Parent = ButtonsFrame
+local BtnLayout = Instance.new("UIListLayout")
+BtnLayout.FillDirection = Enum.FillDirection.Horizontal
+BtnLayout.Padding = UDim.new(0, 8)
+BtnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+BtnLayout.Parent = BtnFrame
 
--- Scroll Frame
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -125)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 115)
-ScrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-ScrollFrame.BorderSizePixel = 0
-ScrollFrame.ScrollBarThickness = 8
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ScrollFrame.Parent = MainFrame
+-- Results
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -20, 1, -125)
+Scroll.Position = UDim2.new(0, 10, 0, 115)
+Scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 8
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Scroll.Parent = Main
 
-local ScrollCorner = Instance.new("UICorner")
-ScrollCorner.CornerRadius = UDim.new(0, 8)
-ScrollCorner.Parent = ScrollFrame
+local Corner4 = Instance.new("UICorner")
+Corner4.CornerRadius = UDim.new(0, 8)
+Corner4.Parent = Scroll
 
-local ResultsLayout = Instance.new("UIListLayout")
-ResultsLayout.Padding = UDim.new(0, 3)
-ResultsLayout.Parent = ScrollFrame
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 3)
+Layout.Parent = Scroll
 
--- Create Button Function
-local function createButton(text, color, callback)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0, 130, 1, 0)
-    Button.BackgroundColor3 = color
-    Button.Text = text
-    Button.TextColor3 = Color3.new(1, 1, 1)
-    Button.Font = Enum.Font.GothamBold
-    Button.TextSize = 13
-    Button.Parent = ButtonsFrame
+-- Functions
+local function makeButton(txt, col, func)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 130, 1, 0)
+    btn.BackgroundColor3 = col
+    btn.Text = txt
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = BtnFrame
     
-    local BtnCorner = Instance.new("UICorner")
-    BtnCorner.CornerRadius = UDim.new(0, 6)
-    BtnCorner.Parent = Button
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
     
-    Button.MouseButton1Click:Connect(function()
-        Button.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    btn.MouseButton1Click:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
         task.wait(0.1)
-        Button.BackgroundColor3 = color
-        if callback then pcall(callback) end
-    end)
-    
-    return Button
-end
-
--- Add Result Function
-local function addResult(text, color)
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -10, 0, 22)
-    Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Label.Text = " " .. text
-    Label.TextColor3 = color or Color3.new(1, 1, 1)
-    Label.Font = Enum.Font.Code
-    Label.TextSize = 12
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.TextTruncate = Enum.TextTruncate.AtEnd
-    Label.Parent = ScrollFrame
-    
-    local LblCorner = Instance.new("UICorner")
-    LblCorner.CornerRadius = UDim.new(0, 4)
-    LblCorner.Parent = Label
-    
-    -- Click to copy
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, 0, 1, 0)
-    Button.BackgroundTransparency = 1
-    Button.Text = ""
-    Button.Parent = Label
-    
-    Button.MouseButton1Click:Connect(function()
-        if copyToClipboard(text) then
-            Label.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-            task.wait(0.2)
-            Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        end
+        btn.BackgroundColor3 = col
+        pcall(func)
     end)
 end
 
--- Clear Results
-local function clearResults()
-    for _, child in pairs(ScrollFrame:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
+local function addLine(txt, col)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    lbl.Text = " " .. txt
+    lbl.TextColor3 = col or Color3.new(1, 1, 1)
+    lbl.Font = Enum.Font.Code
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextTruncate = Enum.TextTruncate.AtEnd
+    lbl.Parent = Scroll
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = lbl
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.Parent = lbl
+    
+    btn.MouseButton1Click:Connect(function()
+        copyText(txt)
+        lbl.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        task.wait(0.2)
+        lbl.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    end)
+end
+
+local function clear()
+    for _, v in pairs(Scroll:GetChildren()) do
+        if v:IsA("TextLabel") then
+            v:Destroy()
         end
     end
 end
 
--- SCANNER FUNCTIONS
-
+-- Scans
 local function scanRemotes()
-    clearResults()
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("📡 REMOTE EVENTS & FUNCTIONS", Color3.fromRGB(0, 255, 255))
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("", Color3.new(1, 1, 1))
+    clear()
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("📡 REMOTE EVENTS & FUNCTIONS", Color3.fromRGB(0, 255, 255))
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("", Color3.new(1, 1, 1))
     
     local count = 0
-    
-    -- Scan ReplicatedStorage
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
         if obj:IsA("RemoteEvent") then
             count = count + 1
-            addResult("📡 " .. obj:GetFullName(), Color3.fromRGB(255, 100, 100))
+            addLine("📡 " .. obj:GetFullName(), Color3.fromRGB(255, 100, 100))
         elseif obj:IsA("RemoteFunction") then
             count = count + 1
-            addResult("📞 " .. obj:GetFullName(), Color3.fromRGB(255, 150, 100))
+            addLine("📞 " .. obj:GetFullName(), Color3.fromRGB(255, 150, 100))
         end
     end
     
-    addResult("", Color3.new(1, 1, 1))
-    addResult("✅ Total: " .. count .. " remotes found", Color3.fromRGB(0, 255, 0))
-    
-    print("📡 Found " .. count .. " remotes")
+    addLine("", Color3.new(1, 1, 1))
+    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
+    print("Found " .. count .. " remotes")
 end
 
 local function scanPets()
-    clearResults()
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("🦁 PETS & ANIMALS", Color3.fromRGB(0, 255, 255))
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("", Color3.new(1, 1, 1))
+    clear()
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("🦁 PETS & ANIMALS", Color3.fromRGB(0, 255, 255))
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("", Color3.new(1, 1, 1))
     
     local count = 0
-    local found = {}
+    local seen = {}
     
     for _, obj in pairs(Workspace:GetDescendants()) do
         local name = obj.Name:lower()
-        local isAnimal = name:find("animal") or name:find("pet") or 
-                        name:find("hipopótamo") or name:find("hipopotamo") or
-                        obj:FindFirstChild("Animal") or obj:FindFirstChild("Pet")
+        local check = name:find("animal") or name:find("pet") or 
+                     name:find("hipopótamo") or name:find("hipopotamo") or
+                     obj:FindFirstChild("Animal") or obj:FindFirstChild("Pet")
         
-        if isAnimal and not found[obj:GetFullName()] then
+        if check and not seen[obj:GetFullName()] then
             count = count + 1
-            found[obj:GetFullName()] = true
+            seen[obj:GetFullName()] = true
             local icon = obj:IsA("Model") and "📦" or "🔷"
-            addResult(icon .. " " .. obj:GetFullName(), Color3.fromRGB(255, 200, 0))
+            addLine(icon .. " " .. obj:GetFullName(), Color3.fromRGB(255, 200, 0))
         end
     end
     
-    addResult("", Color3.new(1, 1, 1))
-    addResult("✅ Total: " .. count .. " pets/animals found", Color3.fromRGB(0, 255, 0))
-    
-    print("🦁 Found " .. count .. " pets")
+    addLine("", Color3.new(1, 1, 1))
+    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
+    print("Found " .. count .. " pets")
 end
 
 local function scanMoney()
-    clearResults()
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("💰 MONEY & CURRENCY", Color3.fromRGB(0, 255, 255))
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("", Color3.new(1, 1, 1))
+    clear()
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("💰 MONEY & STATS", Color3.fromRGB(0, 255, 255))
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("", Color3.new(1, 1, 1))
     
     local count = 0
     
-    -- Player Stats
     if player:FindFirstChild("leaderstats") then
-        addResult("📊 PLAYER STATS:", Color3.fromRGB(100, 200, 255))
+        addLine("📊 PLAYER STATS:", Color3.fromRGB(100, 200, 255))
         for _, stat in pairs(player.leaderstats:GetChildren()) do
             count = count + 1
-            local value = tostring(stat.Value)
-            addResult("  💰 " .. stat.Name .. " = " .. value, Color3.fromRGB(255, 215, 0))
+            addLine("  💰 " .. stat.Name .. " = " .. tostring(stat.Value), Color3.fromRGB(255, 215, 0))
         end
-        addResult("", Color3.new(1, 1, 1))
+        addLine("", Color3.new(1, 1, 1))
     end
     
-    -- ReplicatedStorage
-    addResult("📦 REPLICATED STORAGE:", Color3.fromRGB(100, 200, 255))
+    addLine("📦 REPLICATEDSTORAGE:", Color3.fromRGB(100, 200, 255))
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
         local name = obj.Name:lower()
-        if name:find("money") or name:find("coin") or name:find("cash") or name:find("currency") then
+        if name:find("money") or name:find("coin") or name:find("cash") then
             count = count + 1
-            addResult("  💵 " .. obj:GetFullName(), Color3.fromRGB(0, 255, 100))
+            addLine("  💵 " .. obj:GetFullName(), Color3.fromRGB(0, 255, 100))
         end
     end
     
-    addResult("", Color3.new(1, 1, 1))
-    addResult("✅ Total: " .. count .. " money objects found", Color3.fromRGB(0, 255, 0))
-    
-    print("💰 Found " .. count .. " money objects")
+    addLine("", Color3.new(1, 1, 1))
+    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
+    print("Found " .. count .. " money objects")
 end
 
-local function scanImportant()
-    clearResults()
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("⭐ IMPORTANT OBJECTS", Color3.fromRGB(0, 255, 255))
-    addResult("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addResult("", Color3.new(1, 1, 1))
+local function scanAll()
+    clear()
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("⭐ IMPORTANT OBJECTS", Color3.fromRGB(0, 255, 255))
+    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
+    addLine("", Color3.new(1, 1, 1))
     
-    local keywords = {
-        "catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop",
-        "inventory", "equip", "tool", "spawn"
-    }
-    
+    local keywords = {"catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop"}
     local count = 0
     
-    addResult("📦 REPLICATED STORAGE:", Color3.fromRGB(100, 200, 255))
+    addLine("📦 REPLICATEDSTORAGE:", Color3.fromRGB(100, 200, 255))
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
         local name = obj.Name:lower()
-        for _, keyword in pairs(keywords) do
-            if name:find(keyword) then
+        for _, word in pairs(keywords) do
+            if name:find(word) then
                 count = count + 1
                 local icon = obj:IsA("RemoteEvent") and "📡" or obj:IsA("RemoteFunction") and "📞" or "⭐"
-                addResult("  " .. icon .. " " .. obj:GetFullName(), Color3.fromRGB(200, 200, 255))
+                addLine("  " .. icon .. " " .. obj:GetFullName(), Color3.fromRGB(200, 200, 255))
                 break
             end
         end
     end
     
-    addResult("", Color3.new(1, 1, 1))
-    addResult("🌍 WORKSPACE FOLDERS:", Color3.fromRGB(100, 200, 255))
+    addLine("", Color3.new(1, 1, 1))
+    addLine("🌍 WORKSPACE:", Color3.fromRGB(100, 200, 255))
     for _, obj in pairs(Workspace:GetChildren()) do
         if obj:IsA("Folder") or obj:IsA("Model") then
             count = count + 1
-            addResult("  📁 " .. obj.Name, Color3.fromRGB(150, 255, 150))
+            addLine("  📁 " .. obj.Name, Color3.fromRGB(150, 255, 150))
         end
     end
     
-    addResult("", Color3.new(1, 1, 1))
-    addResult("✅ Total: " .. count .. " important objects found", Color3.fromRGB(0, 255, 0))
-    
-    print("⭐ Found " .. count .. " important objects")
+    addLine("", Color3.new(1, 1, 1))
+    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
+    print("Found " .. count .. " objects")
 end
 
 local function exportAll()
-    clearResults()
+    clear()
     
-    local export = [[
-🔍 CATCH AND TAME - FULL SCAN RESULTS
-═══════════════════════════════════════
-
-📡 REMOTE EVENTS:
-]]
+    local txt = "🔍 GAME SCAN\n═══════════════\n\n📡 REMOTES:\n"
     
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") then
-            export = export .. obj:GetFullName() .. "\n"
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            txt = txt .. obj:GetFullName() .. "\n"
         end
     end
     
-    export = export .. "\n📞 REMOTE FUNCTIONS:\n"
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteFunction") then
-            export = export .. obj:GetFullName() .. "\n"
-        end
+    copyText(txt)
+    addLine("✅ COPIED TO CLIPBOARD!", Color3.fromRGB(0, 255, 0))
+    addLine("", Color3.new(1, 1, 1))
+    
+    for line in txt:gmatch("[^\n]+") do
+        addLine(line, Color3.fromRGB(200, 200, 200))
     end
     
-    if copyToClipboard(export) then
-        addResult("✅ FULL EXPORT COPIED TO CLIPBOARD!", Color3.fromRGB(0, 255, 0))
-    else
-        addResult("❌ Clipboard not available", Color3.fromRGB(255, 0, 0))
-    end
-    
-    addResult("", Color3.new(1, 1, 1))
-    addResult("═══ PREVIEW ═══", Color3.fromRGB(255, 255, 0))
-    
-    for line in export:gmatch("[^\n]+") do
-        addResult(line, Color3.fromRGB(200, 200, 200))
-    end
-    
-    print("📋 Export complete!")
+    print("Exported!")
 end
 
 -- Create Buttons
-createButton("🔍 Remotes", Color3.fromRGB(255, 50, 50), scanRemotes)
-createButton("🦁 Pets", Color3.fromRGB(255, 165, 0), scanPets)
-createButton("💰 Money", Color3.fromRGB(255, 215, 0), scanMoney)
-createButton("⭐ Important", Color3.fromRGB(100, 150, 255), scanImportant)
-createButton("📋 Export", Color3.fromRGB(200, 50, 200), exportAll)
+makeButton("🔍 Remotes", Color3.fromRGB(255, 50, 50), scanRemotes)
+makeButton("🦁 Pets", Color3.fromRGB(255, 165, 0), scanPets)
+makeButton("💰 Money", Color3.fromRGB(255, 215, 0), scanMoney)
+makeButton("⭐ All", Color3.fromRGB(100, 150, 255), scanAll)
+makeButton("📋 Export", Color3.fromRGB(200, 50, 200), exportAll)
 
--- Initial message
-addResult("👆 Click buttons to scan game structure", Color3.fromRGB(150, 150, 150))
-addResult("💡 Click any result to copy to clipboard", Color3.fromRGB(150, 150, 150))
+-- Start
+addLine("👆 Click buttons to scan", Color3.fromRGB(150, 150, 150))
+addLine("💡 Click results to copy", Color3.fromRGB(150, 150, 150))
 
-print("✅ Scanner loaded successfully!")
-print("🔍 GUI ready - Click buttons to scan")
+print("✅ Scanner loaded!")

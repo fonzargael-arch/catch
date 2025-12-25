@@ -1,336 +1,419 @@
 --[[
-    🔍 GAME STRUCTURE SCANNER
-    ═══════════════════════════════════════
-    Compatible con Xeno - SIN CoreGui
+    🔍 GAME SCANNER - Linoria UI Library
+    Compatible con Xeno y otros executors
+    Con función de copiar al portapapeles
 ]]
 
 print("═══════════════════════════════════")
-print("🔍 Starting Scanner...")
+print("🔍 Loading Scanner with Linoria UI...")
 print("═══════════════════════════════════")
 
-repeat task.wait() until game:IsLoaded()
+-- Load Linoria Library
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
+-- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-
 local player = Players.LocalPlayer
 
--- Safe clipboard
-local function copyText(text)
-    pcall(function()
-        if setclipboard then
-            setclipboard(text)
-        elseif toclipboard then
-            toclipboard(text)
-        end
-    end)
-end
+-- Storage
+local scanData = {
+    remotes = {},
+    pets = {},
+    money = {},
+    important = {},
+    tools = {}
+}
 
--- Create GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "Scanner"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+-- Create Window
+local Window = Library:CreateWindow({
+    Title = '🔍 Game Structure Scanner',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 700, 0, 500)
-Main.Position = UDim2.new(0.5, -350, 0.5, -250)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.Parent = ScreenGui
+-- Create Tabs
+local Tabs = {
+    Remotes = Window:AddTab('📡 Remotes'),
+    Pets = Window:AddTab('🦁 Pets'),
+    Money = Window:AddTab('💰 Money'),
+    Important = Window:AddTab('⭐ Important'),
+    Export = Window:AddTab('📋 Export')
+}
 
-local Corner1 = Instance.new("UICorner")
-Corner1.CornerRadius = UDim.new(0, 10)
-Corner1.Parent = Main
+-- Remotes Tab
+local RemotesBox = Tabs.Remotes:AddLeftGroupbox('Remote Events & Functions')
 
-local Stroke1 = Instance.new("UIStroke")
-Stroke1.Color = Color3.fromRGB(0, 255, 255)
-Stroke1.Thickness = 3
-Stroke1.Parent = Main
-
--- Title
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 45)
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Title.Text = "🔍 GAME SCANNER"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
-Title.BorderSizePixel = 0
-Title.Parent = Main
-
-local Corner2 = Instance.new("UICorner")
-Corner2.CornerRadius = UDim.new(0, 10)
-Corner2.Parent = Title
-
--- Close
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0, 35, 0, 35)
-Close.Position = UDim2.new(1, -40, 0, 5)
-Close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-Close.Text = "X"
-Close.TextColor3 = Color3.new(1, 1, 1)
-Close.Font = Enum.Font.GothamBold
-Close.TextSize = 18
-Close.Parent = Title
-
-local Corner3 = Instance.new("UICorner")
-Corner3.CornerRadius = UDim.new(0, 8)
-Corner3.Parent = Close
-
-Close.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- Buttons
-local BtnFrame = Instance.new("Frame")
-BtnFrame.Size = UDim2.new(1, -20, 0, 50)
-BtnFrame.Position = UDim2.new(0, 10, 0, 55)
-BtnFrame.BackgroundTransparency = 1
-BtnFrame.Parent = Main
-
-local BtnLayout = Instance.new("UIListLayout")
-BtnLayout.FillDirection = Enum.FillDirection.Horizontal
-BtnLayout.Padding = UDim.new(0, 8)
-BtnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-BtnLayout.Parent = BtnFrame
-
--- Results
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -20, 1, -125)
-Scroll.Position = UDim2.new(0, 10, 0, 115)
-Scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 8
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Scroll.Parent = Main
-
-local Corner4 = Instance.new("UICorner")
-Corner4.CornerRadius = UDim.new(0, 8)
-Corner4.Parent = Scroll
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 3)
-Layout.Parent = Scroll
-
--- Functions
-local function makeButton(txt, col, func)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 130, 1, 0)
-    btn.BackgroundColor3 = col
-    btn.Text = txt
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 13
-    btn.Parent = BtnFrame
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 6)
-    c.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-        task.wait(0.1)
-        btn.BackgroundColor3 = col
-        pcall(func)
-    end)
-end
-
-local function addLine(txt, col)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -10, 0, 22)
-    lbl.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    lbl.Text = " " .. txt
-    lbl.TextColor3 = col or Color3.new(1, 1, 1)
-    lbl.Font = Enum.Font.Code
-    lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextTruncate = Enum.TextTruncate.AtEnd
-    lbl.Parent = Scroll
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = lbl
-    
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.Parent = lbl
-    
-    btn.MouseButton1Click:Connect(function()
-        copyText(txt)
-        lbl.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        task.wait(0.2)
-        lbl.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    end)
-end
-
-local function clear()
-    for _, v in pairs(Scroll:GetChildren()) do
-        if v:IsA("TextLabel") then
-            v:Destroy()
-        end
-    end
-end
-
--- Scans
-local function scanRemotes()
-    clear()
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("📡 REMOTE EVENTS & FUNCTIONS", Color3.fromRGB(0, 255, 255))
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("", Color3.new(1, 1, 1))
-    
-    local count = 0
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") then
-            count = count + 1
-            addLine("📡 " .. obj:GetFullName(), Color3.fromRGB(255, 100, 100))
-        elseif obj:IsA("RemoteFunction") then
-            count = count + 1
-            addLine("📞 " .. obj:GetFullName(), Color3.fromRGB(255, 150, 100))
-        end
-    end
-    
-    addLine("", Color3.new(1, 1, 1))
-    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
-    print("Found " .. count .. " remotes")
-end
-
-local function scanPets()
-    clear()
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("🦁 PETS & ANIMALS", Color3.fromRGB(0, 255, 255))
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("", Color3.new(1, 1, 1))
-    
-    local count = 0
-    local seen = {}
-    
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        local name = obj.Name:lower()
-        local check = name:find("animal") or name:find("pet") or 
-                     name:find("hipopótamo") or name:find("hipopotamo") or
-                     obj:FindFirstChild("Animal") or obj:FindFirstChild("Pet")
+RemotesBox:AddButton({
+    Text = '🔍 Scan Remotes',
+    Func = function()
+        scanData.remotes = {}
         
-        if check and not seen[obj:GetFullName()] then
-            count = count + 1
-            seen[obj:GetFullName()] = true
-            local icon = obj:IsA("Model") and "📦" or "🔷"
-            addLine(icon .. " " .. obj:GetFullName(), Color3.fromRGB(255, 200, 0))
-        end
-    end
-    
-    addLine("", Color3.new(1, 1, 1))
-    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
-    print("Found " .. count .. " pets")
-end
-
-local function scanMoney()
-    clear()
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("💰 MONEY & STATS", Color3.fromRGB(0, 255, 255))
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("", Color3.new(1, 1, 1))
-    
-    local count = 0
-    
-    if player:FindFirstChild("leaderstats") then
-        addLine("📊 PLAYER STATS:", Color3.fromRGB(100, 200, 255))
-        for _, stat in pairs(player.leaderstats:GetChildren()) do
-            count = count + 1
-            addLine("  💰 " .. stat.Name .. " = " .. tostring(stat.Value), Color3.fromRGB(255, 215, 0))
-        end
-        addLine("", Color3.new(1, 1, 1))
-    end
-    
-    addLine("📦 REPLICATEDSTORAGE:", Color3.fromRGB(100, 200, 255))
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        local name = obj.Name:lower()
-        if name:find("money") or name:find("coin") or name:find("cash") then
-            count = count + 1
-            addLine("  💵 " .. obj:GetFullName(), Color3.fromRGB(0, 255, 100))
-        end
-    end
-    
-    addLine("", Color3.new(1, 1, 1))
-    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
-    print("Found " .. count .. " money objects")
-end
-
-local function scanAll()
-    clear()
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("⭐ IMPORTANT OBJECTS", Color3.fromRGB(0, 255, 255))
-    addLine("═══════════════════════════════════", Color3.fromRGB(0, 255, 255))
-    addLine("", Color3.new(1, 1, 1))
-    
-    local keywords = {"catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop"}
-    local count = 0
-    
-    addLine("📦 REPLICATEDSTORAGE:", Color3.fromRGB(100, 200, 255))
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        local name = obj.Name:lower()
-        for _, word in pairs(keywords) do
-            if name:find(word) then
-                count = count + 1
-                local icon = obj:IsA("RemoteEvent") and "📡" or obj:IsA("RemoteFunction") and "📞" or "⭐"
-                addLine("  " .. icon .. " " .. obj:GetFullName(), Color3.fromRGB(200, 200, 255))
-                break
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") then
+                table.insert(scanData.remotes, {
+                    type = "RemoteEvent",
+                    path = obj:GetFullName(),
+                    name = obj.Name
+                })
+            elseif obj:IsA("RemoteFunction") then
+                table.insert(scanData.remotes, {
+                    type = "RemoteFunction",
+                    path = obj:GetFullName(),
+                    name = obj.Name
+                })
             end
         end
-    end
-    
-    addLine("", Color3.new(1, 1, 1))
-    addLine("🌍 WORKSPACE:", Color3.fromRGB(100, 200, 255))
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("Folder") or obj:IsA("Model") then
-            count = count + 1
-            addLine("  📁 " .. obj.Name, Color3.fromRGB(150, 255, 150))
+        
+        Library:Notify('Found ' .. #scanData.remotes .. ' remotes!', 3)
+    end,
+    Tooltip = 'Scan for all RemoteEvents and RemoteFunctions'
+})
+
+RemotesBox:AddButton({
+    Text = '📋 Copy All Remotes',
+    Func = function()
+        local text = "📡 REMOTES SCAN:\n" .. string.rep("=", 50) .. "\n\n"
+        for _, remote in pairs(scanData.remotes) do
+            text = text .. string.format("[%s] %s\n", remote.type, remote.path)
         end
-    end
-    
-    addLine("", Color3.new(1, 1, 1))
-    addLine("✅ Total: " .. count, Color3.fromRGB(0, 255, 0))
-    print("Found " .. count .. " objects")
-end
-
-local function exportAll()
-    clear()
-    
-    local txt = "🔍 GAME SCAN\n═══════════════\n\n📡 REMOTES:\n"
-    
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            txt = txt .. obj:GetFullName() .. "\n"
+        
+        if setclipboard then
+            setclipboard(text)
+            Library:Notify('Copied ' .. #scanData.remotes .. ' remotes to clipboard!', 3)
+        else
+            Library:Notify('Clipboard not supported!', 3)
         end
-    end
-    
-    copyText(txt)
-    addLine("✅ COPIED TO CLIPBOARD!", Color3.fromRGB(0, 255, 0))
-    addLine("", Color3.new(1, 1, 1))
-    
-    for line in txt:gmatch("[^\n]+") do
-        addLine(line, Color3.fromRGB(200, 200, 200))
-    end
-    
-    print("Exported!")
-end
+    end,
+    Tooltip = 'Copy all remotes to clipboard'
+})
 
--- Create Buttons
-makeButton("🔍 Remotes", Color3.fromRGB(255, 50, 50), scanRemotes)
-makeButton("🦁 Pets", Color3.fromRGB(255, 165, 0), scanPets)
-makeButton("💰 Money", Color3.fromRGB(255, 215, 0), scanMoney)
-makeButton("⭐ All", Color3.fromRGB(100, 150, 255), scanAll)
-makeButton("📋 Export", Color3.fromRGB(200, 50, 200), exportAll)
+local RemotesDisplay = Tabs.Remotes:AddRightGroupbox('Results')
+RemotesDisplay:AddLabel('Click "Scan Remotes" to start')
 
--- Start
-addLine("👆 Click buttons to scan", Color3.fromRGB(150, 150, 150))
-addLine("💡 Click results to copy", Color3.fromRGB(150, 150, 150))
+-- Pets Tab
+local PetsBox = Tabs.Pets:AddLeftGroupbox('Pets & Animals Scanner')
 
-print("✅ Scanner loaded!")
+PetsBox:AddButton({
+    Text = '🔍 Scan Pets',
+    Func = function()
+        scanData.pets = {}
+        local found = {}
+        
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            local isPet = string.find(name, "animal") or 
+                         string.find(name, "pet") or 
+                         string.find(name, "hipopótamo") or
+                         string.find(name, "hipopotamo") or
+                         obj:FindFirstChild("Animal") or 
+                         obj:FindFirstChild("Pet")
+            
+            if isPet and not found[obj:GetFullName()] then
+                found[obj:GetFullName()] = true
+                table.insert(scanData.pets, {
+                    name = obj.Name,
+                    path = obj:GetFullName(),
+                    type = obj.ClassName
+                })
+            end
+        end
+        
+        Library:Notify('Found ' .. #scanData.pets .. ' pets!', 3)
+    end,
+    Tooltip = 'Scan for all pets and animals'
+})
+
+PetsBox:AddButton({
+    Text = '📋 Copy All Pets',
+    Func = function()
+        local text = "🦁 PETS SCAN:\n" .. string.rep("=", 50) .. "\n\n"
+        for _, pet in pairs(scanData.pets) do
+            text = text .. string.format("[%s] %s\n", pet.type, pet.path)
+        end
+        
+        if setclipboard then
+            setclipboard(text)
+            Library:Notify('Copied ' .. #scanData.pets .. ' pets to clipboard!', 3)
+        else
+            Library:Notify('Clipboard not supported!', 3)
+        end
+    end,
+    Tooltip = 'Copy all pets to clipboard'
+})
+
+local PetsDisplay = Tabs.Pets:AddRightGroupbox('Results')
+PetsDisplay:AddLabel('Click "Scan Pets" to start')
+
+-- Money Tab
+local MoneyBox = Tabs.Money:AddLeftGroupbox('Money & Currency Scanner')
+
+MoneyBox:AddButton({
+    Text = '🔍 Scan Money',
+    Func = function()
+        scanData.money = {}
+        
+        -- Player Stats
+        if player:FindFirstChild("leaderstats") then
+            for _, stat in pairs(player.leaderstats:GetChildren()) do
+                table.insert(scanData.money, {
+                    type = "PlayerStat",
+                    name = stat.Name,
+                    value = tostring(stat.Value),
+                    path = stat:GetFullName()
+                })
+            end
+        end
+        
+        -- ReplicatedStorage
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            if string.find(name, "money") or string.find(name, "coin") or string.find(name, "cash") then
+                table.insert(scanData.money, {
+                    type = obj.ClassName,
+                    name = obj.Name,
+                    path = obj:GetFullName()
+                })
+            end
+        end
+        
+        Library:Notify('Found ' .. #scanData.money .. ' money objects!', 3)
+    end,
+    Tooltip = 'Scan for money and currency'
+})
+
+MoneyBox:AddButton({
+    Text = '📋 Copy All Money',
+    Func = function()
+        local text = "💰 MONEY SCAN:\n" .. string.rep("=", 50) .. "\n\n"
+        for _, money in pairs(scanData.money) do
+            if money.value then
+                text = text .. string.format("[%s] %s = %s\n", money.type, money.name, money.value)
+            else
+                text = text .. string.format("[%s] %s\n", money.type, money.path)
+            end
+        end
+        
+        if setclipboard then
+            setclipboard(text)
+            Library:Notify('Copied ' .. #scanData.money .. ' money objects to clipboard!', 3)
+        else
+            Library:Notify('Clipboard not supported!', 3)
+        end
+    end,
+    Tooltip = 'Copy all money objects to clipboard'
+})
+
+local MoneyDisplay = Tabs.Money:AddRightGroupbox('Results')
+MoneyDisplay:AddLabel('Click "Scan Money" to start')
+
+-- Important Tab
+local ImportantBox = Tabs.Important:AddLeftGroupbox('Important Objects Scanner')
+
+ImportantBox:AddButton({
+    Text = '🔍 Scan Important',
+    Func = function()
+        scanData.important = {}
+        local keywords = {"catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop", "inventory"}
+        
+        -- ReplicatedStorage
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            for _, keyword in pairs(keywords) do
+                if string.find(name, keyword) then
+                    table.insert(scanData.important, {
+                        type = obj.ClassName,
+                        name = obj.Name,
+                        path = obj:GetFullName(),
+                        keyword = keyword
+                    })
+                    break
+                end
+            end
+        end
+        
+        -- Workspace Folders
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Folder") or obj:IsA("Model") then
+                table.insert(scanData.important, {
+                    type = obj.ClassName,
+                    name = obj.Name,
+                    path = obj:GetFullName()
+                })
+            end
+        end
+        
+        Library:Notify('Found ' .. #scanData.important .. ' important objects!', 3)
+    end,
+    Tooltip = 'Scan for important game objects'
+})
+
+ImportantBox:AddButton({
+    Text = '📋 Copy All Important',
+    Func = function()
+        local text = "⭐ IMPORTANT SCAN:\n" .. string.rep("=", 50) .. "\n\n"
+        for _, obj in pairs(scanData.important) do
+            text = text .. string.format("[%s] %s\n", obj.type, obj.path)
+        end
+        
+        if setclipboard then
+            setclipboard(text)
+            Library:Notify('Copied ' .. #scanData.important .. ' objects to clipboard!', 3)
+        else
+            Library:Notify('Clipboard not supported!', 3)
+        end
+    end,
+    Tooltip = 'Copy all important objects to clipboard'
+})
+
+local ImportantDisplay = Tabs.Important:AddRightGroupbox('Results')
+ImportantDisplay:AddLabel('Click "Scan Important" to start')
+
+-- Export Tab
+local ExportBox = Tabs.Export:AddLeftGroupbox('Export All Data')
+
+ExportBox:AddButton({
+    Text = '🔍 SCAN EVERYTHING',
+    Func = function()
+        -- Scan Remotes
+        scanData.remotes = {}
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                table.insert(scanData.remotes, {type = obj.ClassName, path = obj:GetFullName()})
+            end
+        end
+        
+        -- Scan Pets
+        scanData.pets = {}
+        local found = {}
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            local isPet = string.find(name, "animal") or string.find(name, "pet") or 
+                         string.find(name, "hipopótamo") or obj:FindFirstChild("Animal")
+            if isPet and not found[obj:GetFullName()] then
+                found[obj:GetFullName()] = true
+                table.insert(scanData.pets, {type = obj.ClassName, path = obj:GetFullName()})
+            end
+        end
+        
+        -- Scan Money
+        scanData.money = {}
+        if player:FindFirstChild("leaderstats") then
+            for _, stat in pairs(player.leaderstats:GetChildren()) do
+                table.insert(scanData.money, {name = stat.Name, value = stat.Value})
+            end
+        end
+        
+        Library:Notify('Full scan complete!', 3)
+    end,
+    Tooltip = 'Scan all categories at once'
+})
+
+ExportBox:AddButton({
+    Text = '📋 COPY FULL REPORT',
+    Func = function()
+        local text = [[
+🔍 CATCH AND TAME - FULL GAME SCAN
+════════════════════════════════════════════════
+
+📡 REMOTE EVENTS & FUNCTIONS:
+────────────────────────────────────────────────
+]]
+        
+        for _, remote in pairs(scanData.remotes) do
+            text = text .. string.format("[%s] %s\n", remote.type, remote.path)
+        end
+        
+        text = text .. "\n🦁 PETS & ANIMALS:\n" .. string.rep("─", 52) .. "\n"
+        for _, pet in pairs(scanData.pets) do
+            text = text .. string.format("[%s] %s\n", pet.type, pet.path)
+        end
+        
+        text = text .. "\n💰 MONEY & STATS:\n" .. string.rep("─", 52) .. "\n"
+        for _, money in pairs(scanData.money) do
+            if money.value then
+                text = text .. string.format("%s = %s\n", money.name, tostring(money.value))
+            end
+        end
+        
+        text = text .. "\n⭐ IMPORTANT OBJECTS:\n" .. string.rep("─", 52) .. "\n"
+        for _, obj in pairs(scanData.important) do
+            text = text .. string.format("[%s] %s\n", obj.type, obj.path)
+        end
+        
+        text = text .. "\n════════════════════════════════════════════════\n"
+        text = text .. string.format("📊 SUMMARY:\n")
+        text = text .. string.format("   Remotes: %d\n", #scanData.remotes)
+        text = text .. string.format("   Pets: %d\n", #scanData.pets)
+        text = text .. string.format("   Money Objects: %d\n", #scanData.money)
+        text = text .. string.format("   Important: %d\n", #scanData.important)
+        
+        if setclipboard then
+            setclipboard(text)
+            Library:Notify('Full report copied to clipboard!', 5)
+        else
+            Library:Notify('Clipboard not supported!', 3)
+        end
+    end,
+    Tooltip = 'Copy complete scan report'
+})
+
+ExportBox:AddDivider()
+
+ExportBox:AddLabel('Quick Actions:')
+
+ExportBox:AddButton({
+    Text = '🖨️ Print to Console',
+    Func = function()
+        print("\n\n" .. string.rep("═", 50))
+        print("🔍 GAME SCAN RESULTS")
+        print(string.rep("═", 50))
+        
+        print("\n📡 REMOTES: " .. #scanData.remotes)
+        for i, remote in pairs(scanData.remotes) do
+            if i <= 10 then
+                print("  " .. remote.path)
+            end
+        end
+        
+        print("\n🦁 PETS: " .. #scanData.pets)
+        for i, pet in pairs(scanData.pets) do
+            if i <= 10 then
+                print("  " .. pet.path)
+            end
+        end
+        
+        print("\n" .. string.rep("═", 50) .. "\n")
+        
+        Library:Notify('Results printed to console!', 3)
+    end,
+    Tooltip = 'Print results to executor console'
+})
+
+local ExportInfo = Tabs.Export:AddRightGroupbox('Information')
+ExportInfo:AddLabel('1. Click "SCAN EVERYTHING"')
+ExportInfo:AddLabel('2. Click "COPY FULL REPORT"')
+ExportInfo:AddLabel('3. Paste results anywhere!')
+ExportInfo:AddDivider()
+ExportInfo:AddLabel('Status: Ready to scan')
+
+-- UI Settings
+Library:SetWatermarkVisibility(true)
+Library:SetWatermark('Game Scanner | Linoria UI')
+
+-- Theme Manager
+ThemeManager:SetLibrary(Library)
+ThemeManager:SetFolder('GameScanner')
+ThemeManager:ApplyToTab(Window:AddTab('⚙️ Settings'))
+
+-- Notifications
+Library:Notify('Scanner loaded successfully!', 5)
+
+print("✅ Scanner with Linoria UI loaded!")
+print("📋 Use the Export tab to copy all results")

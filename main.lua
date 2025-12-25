@@ -1,349 +1,357 @@
 --[[
-    🦁 CATCH AND TAME - OPTIMIZED SCRIPT
+    🔍 GAME STRUCTURE SCANNER
     ═══════════════════════════════════════
-    Versión optimizada sin librerías externas
-    
-    Features:
-    ✨ Insta Catch
-    💰 Infinite Money
-    👁️ ESP System
-    📍 Pet List with TP
+    Escanea todo el juego para encontrar:
+    - RemoteEvents/Functions
+    - Pets/Animals
+    - Money/Currency
+    - Important Objects
 ]]
 
-repeat task.wait() until game:IsLoaded()
-
 print("═══════════════════════════════════")
-print("🦁 Catch & Tame Loading...")
+print("🔍 Starting Game Scanner...")
 print("═══════════════════════════════════")
 
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
--- Variables
 local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local root = char:WaitForChild("HumanoidRootPart")
 
--- Config
-local config = {
-    InstaCatch = false,
-    InfiniteMoney = false,
-    ESPEnabled = false,
-    ESPDistance = 500
+-- Results Storage
+local scanResults = {
+    remoteEvents = {},
+    remoteFunctions = {},
+    pets = {},
+    animals = {},
+    money = {},
+    important = {},
+    folders = {}
 }
 
-local activePets = {}
-local espObjects = {}
-
--- Pet Rarity
-local petRarity = {
-    ["Hipopótamo"] = {color = Color3.new(1, 0, 1), rarity = "Epic"},
-    ["Dragon"] = {color = Color3.new(1, 0, 0), rarity = "Legendary"},
-    ["Tiger"] = {color = Color3.new(0.6, 0, 1), rarity = "Epic"},
-    ["Lion"] = {color = Color3.new(0.7, 0, 0.8), rarity = "Epic"}
-}
-
--- Funciones de utilidad
-local function notify(title, text)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = title,
-        Text = text,
-        Duration = 3
-    })
-end
-
--- GUI Creation (Minimalista)
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "CatchTameGUI"
+ScreenGui.Name = "ScannerGUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local success, err = pcall(function()
-    ScreenGui.Parent = player:WaitForChild("PlayerGui")
-end)
-
-if not success then
-    warn("Error creating GUI:", err)
-    return
-end
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Size = UDim2.new(0, 600, 0, 500)
+MainFrame.Position = UDim2.new(0.5, -300, 0.5, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 10)
+Corner.Parent = MainFrame
 
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Color = Color3.fromRGB(255, 165, 0)
-UIStroke.Thickness = 2
-UIStroke.Parent = MainFrame
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(0, 255, 255)
+Stroke.Thickness = 2
+Stroke.Parent = MainFrame
 
 -- Title
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Title.BorderSizePixel = 0
-Title.Text = "🦁 Catch & Tame"
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.Text = "🔍 Game Structure Scanner"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
+Title.BorderSizePixel = 0
 Title.Parent = MainFrame
 
 local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 10)
 TitleCorner.Parent = Title
 
--- Container
-local Container = Instance.new("ScrollingFrame")
-Container.Size = UDim2.new(1, -20, 1, -60)
-Container.Position = UDim2.new(0, 10, 0, 50)
-Container.BackgroundTransparency = 1
-Container.BorderSizePixel = 0
-Container.ScrollBarThickness = 4
-Container.CanvasSize = UDim2.new(0, 0, 0, 0)
-Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Container.Parent = MainFrame
+-- Buttons Container
+local ButtonsFrame = Instance.new("Frame")
+ButtonsFrame.Size = UDim2.new(1, -20, 0, 50)
+ButtonsFrame.Position = UDim2.new(0, 10, 0, 50)
+ButtonsFrame.BackgroundTransparency = 1
+ButtonsFrame.Parent = MainFrame
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 8)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = Container
+local ButtonLayout = Instance.new("UIListLayout")
+ButtonLayout.FillDirection = Enum.FillDirection.Horizontal
+ButtonLayout.Padding = UDim.new(0, 10)
+ButtonLayout.Parent = ButtonsFrame
 
--- Stats Label
-local StatsLabel = Instance.new("TextLabel")
-StatsLabel.Size = UDim2.new(1, 0, 0, 30)
-StatsLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-StatsLabel.BorderSizePixel = 0
-StatsLabel.Text = "📊 Active Pets: 0"
-StatsLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-StatsLabel.Font = Enum.Font.GothamBold
-StatsLabel.TextSize = 14
-StatsLabel.Parent = Container
+-- Scroll Frame for Results
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -120)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 110)
+ScrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ScrollFrame.Parent = MainFrame
 
-local StatsCorner = Instance.new("UICorner")
-StatsCorner.CornerRadius = UDim.new(0, 8)
-StatsCorner.Parent = StatsLabel
+local ScrollCorner = Instance.new("UICorner")
+ScrollCorner.CornerRadius = UDim.new(0, 8)
+ScrollCorner.Parent = ScrollFrame
 
--- Create Toggle Function
-local function createToggle(name, icon, callback)
-    local ToggleFrame = Instance.new("Frame")
-    ToggleFrame.Size = UDim2.new(1, 0, 0, 40)
-    ToggleFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    ToggleFrame.BorderSizePixel = 0
-    ToggleFrame.Parent = Container
-    
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 8)
-    Corner.Parent = ToggleFrame
-    
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -60, 1, 0)
-    Label.Position = UDim2.new(0, 10, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = icon .. " " .. name
-    Label.TextColor3 = Color3.new(1, 1, 1)
-    Label.Font = Enum.Font.Gotham
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = ToggleFrame
-    
+local ResultsLayout = Instance.new("UIListLayout")
+ResultsLayout.Padding = UDim.new(0, 5)
+ResultsLayout.Parent = ScrollFrame
+
+-- Function to create button
+local function createButton(text, color, callback)
     local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0, 40, 0, 24)
-    Button.Position = UDim2.new(1, -50, 0.5, -12)
-    Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    Button.Text = ""
-    Button.Parent = ToggleFrame
+    Button.Size = UDim2.new(0, 130, 1, 0)
+    Button.BackgroundColor3 = color
+    Button.Text = text
+    Button.TextColor3 = Color3.new(1, 1, 1)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 12
+    Button.Parent = ButtonsFrame
     
-    local ButtonCorner = Instance.new("UICorner")
-    ButtonCorner.CornerRadius = UDim.new(1, 0)
-    ButtonCorner.Parent = Button
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 6)
+    BtnCorner.Parent = Button
     
-    local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 18, 0, 18)
-    Indicator.Position = UDim2.new(0, 3, 0.5, -9)
-    Indicator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    Indicator.BorderSizePixel = 0
-    Indicator.Parent = Button
-    
-    local IndicatorCorner = Instance.new("UICorner")
-    IndicatorCorner.CornerRadius = UDim.new(1, 0)
-    IndicatorCorner.Parent = Indicator
-    
-    local enabled = false
     Button.MouseButton1Click:Connect(function()
-        enabled = not enabled
-        
-        TweenService:Create(Button, TweenInfo.new(0.2), {
-            BackgroundColor3 = enabled and Color3.fromRGB(255, 165, 0) or Color3.fromRGB(50, 50, 50)
-        }):Play()
-        
-        TweenService:Create(Indicator, TweenInfo.new(0.2), {
-            Position = enabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9),
-            BackgroundColor3 = enabled and Color3.new(1, 1, 1) or Color3.fromRGB(80, 80, 80)
-        }):Play()
-        
-        if callback then
-            pcall(callback, enabled)
-        end
+        if callback then callback() end
     end)
     
-    return ToggleFrame
+    return Button
 end
 
--- Create Toggles
-createToggle("Insta Catch", "⚡", function(enabled)
-    config.InstaCatch = enabled
-    notify("⚡ Insta Catch", enabled and "ON" or "OFF")
-end)
+-- Function to add result
+local function addResult(text, color)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -10, 0, 25)
+    Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Label.Text = text
+    Label.TextColor3 = color or Color3.new(1, 1, 1)
+    Label.Font = Enum.Font.Code
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.TextWrapped = false
+    Label.ClipsDescendants = true
+    Label.Parent = ScrollFrame
+    
+    local LblCorner = Instance.new("UICorner")
+    LblCorner.CornerRadius = UDim.new(0, 4)
+    LblCorner.Parent = Label
+    
+    -- Copy on click
+    Label.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            setclipboard(text)
+            Label.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            task.wait(0.2)
+            Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        end
+    end)
+end
 
-createToggle("Infinite Money", "💰", function(enabled)
-    config.InfiniteMoney = enabled
-    notify("💰 Infinite Money", enabled and "ON" or "OFF")
-end)
+-- Function to clear results
+local function clearResults()
+    for _, child in pairs(ScrollFrame:GetChildren()) do
+        if child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+end
 
-createToggle("ESP Pets", "👁️", function(enabled)
-    config.ESPEnabled = enabled
-    if not enabled then
-        for _, esp in pairs(espObjects) do
-            if esp and esp.Parent then
-                esp:Destroy()
+-- Scanner Functions
+local function scanRemotes()
+    clearResults()
+    addResult("═══ SCANNING REMOTES ═══", Color3.fromRGB(0, 255, 255))
+    
+    local count = 0
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            count = count + 1
+            local path = obj:GetFullName()
+            addResult("📡 [RemoteEvent] " .. path, Color3.fromRGB(255, 100, 100))
+            table.insert(scanResults.remoteEvents, path)
+        elseif obj:IsA("RemoteFunction") then
+            count = count + 1
+            local path = obj:GetFullName()
+            addResult("📞 [RemoteFunction] " .. path, Color3.fromRGB(255, 150, 100))
+            table.insert(scanResults.remoteFunctions, path)
+        end
+    end
+    
+    addResult(string.format("
+✅ Found %d remotes", count), Color3.fromRGB(0, 255, 0))
+end
+
+local function scanPets()
+    clearResults()
+    addResult("═══ SCANNING PETS/ANIMALS ═══", Color3.fromRGB(0, 255, 255))
+    
+    local count = 0
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        local name = obj.Name:lower()
+        if obj:IsA("Model") or obj:IsA("Folder") or obj:IsA("BasePart") then
+            if name:find("animal") or name:find("pet") or name:find("hipopótamo") or 
+               name:find("dragon") or name:find("lion") or name:find("tiger") or
+               obj:FindFirstChild("Animal") or obj:FindFirstChild("Pet") then
+                count = count + 1
+                local path = obj:GetFullName()
+                local objType = obj.ClassName
+                addResult(string.format("🦁 [%s] %s", objType, path), Color3.fromRGB(255, 200, 0))
+                table.insert(scanResults.pets, path)
             end
         end
-        espObjects = {}
-    end
-    notify("👁️ ESP", enabled and "ON" or "OFF")
-end)
-
--- Pet List Section
-local PetListLabel = Instance.new("TextLabel")
-PetListLabel.Size = UDim2.new(1, 0, 0, 30)
-PetListLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-PetListLabel.BorderSizePixel = 0
-PetListLabel.Text = "📋 Pet List"
-PetListLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-PetListLabel.Font = Enum.Font.GothamBold
-PetListLabel.TextSize = 14
-PetListLabel.Parent = Container
-
-local PetListCorner = Instance.new("UICorner")
-PetListCorner.CornerRadius = UDim.new(0, 8)
-PetListCorner.Parent = PetListLabel
-
--- ESP Function
-local function createESP(obj, petName, distance)
-    if obj:FindFirstChild("PetESP") then
-        return
     end
     
-    local rarityData = petRarity[petName] or {color = Color3.new(0.5, 0.5, 0.5), rarity = "Common"}
+    addResult(string.format("
+✅ Found %d pets/animals", count), Color3.fromRGB(0, 255, 0))
+end
+
+local function scanMoney()
+    clearResults()
+    addResult("═══ SCANNING MONEY/CURRENCY ═══", Color3.fromRGB(0, 255, 255))
     
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "PetESP"
-    billboard.Adornee = obj
-    billboard.Size = UDim2.new(0, 100, 0, 50)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = obj
+    local count = 0
     
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = petName
-    nameLabel.TextColor3 = rarityData.color
-    nameLabel.TextStrokeTransparency = 0
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextScaled = true
-    nameLabel.Parent = billboard
+    -- Check player stats
+    if player:FindFirstChild("leaderstats") then
+        for _, stat in pairs(player.leaderstats:GetChildren()) do
+            count = count + 1
+            local path = stat:GetFullName()
+            local value = stat.Value
+            addResult(string.format("💰 [Stat] %s = %s", path, tostring(value)), Color3.fromRGB(255, 215, 0))
+            table.insert(scanResults.money, {path = path, value = value})
+        end
+    end
     
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = math.floor(distance) .. "m"
-    distLabel.TextColor3 = Color3.new(1, 1, 1)
-    distLabel.TextStrokeTransparency = 0
-    distLabel.Font = Enum.Font.Gotham
-    distLabel.TextScaled = true
-    distLabel.Parent = billboard
+    -- Check for money/currency in ReplicatedStorage
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        local name = obj.Name:lower()
+        if name:find("money") or name:find("coin") or name:find("cash") or name:find("currency") then
+            count = count + 1
+            local path = obj:GetFullName()
+            addResult("💵 [" .. obj.ClassName .. "] " .. path, Color3.fromRGB(0, 255, 100))
+            table.insert(scanResults.money, path)
+        end
+    end
     
-    table.insert(espObjects, billboard)
+    addResult(string.format("
+✅ Found %d money-related objects", count), Color3.fromRGB(0, 255, 0))
+end
+
+local function scanImportant()
+    clearResults()
+    addResult("═══ SCANNING IMPORTANT OBJECTS ═══", Color3.fromRGB(0, 255, 255))
     
-    -- Update distance
-    task.spawn(function()
-        while billboard.Parent and root do
-            task.wait(0.5)
-            if obj and obj.Parent then
-                local dist = (obj.Position - root.Position).Magnitude
-                distLabel.Text = math.floor(dist) .. "m"
-            else
+    local keywords = {
+        "catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop",
+        "inventory", "equip", "tool", "spawn", "collect", "farm"
+    }
+    
+    local count = 0
+    
+    -- Scan ReplicatedStorage
+    addResult("
+📦 ReplicatedStorage:", Color3.fromRGB(100, 200, 255))
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        local name = obj.Name:lower()
+        for _, keyword in pairs(keywords) do
+            if name:find(keyword) then
+                count = count + 1
+                local path = obj:GetFullName()
+                addResult(string.format("  ⭐ [%s] %s", obj.ClassName, path), Color3.fromRGB(200, 200, 255))
                 break
             end
         end
-    end)
-end
-
--- Detect Pets Function
-local function detectPets()
-    local petCount = 0
-    activePets = {}
+    end
     
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("BasePart") then
-            local isPet = obj:FindFirstChild("Animal") or 
-                         obj:FindFirstChild("Pet") or
-                         string.find(string.lower(obj.Name), "hipopótamo") or
-                         string.find(string.lower(obj.Name), "animal")
-            
-            if isPet then
-                local petPart = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart")) or obj
-                
-                if petPart and petPart:IsA("BasePart") and root then
-                    local distance = (petPart.Position - root.Position).Magnitude
-                    
-                    if distance <= config.ESPDistance then
-                        petCount = petCount + 1
-                        table.insert(activePets, {
-                            name = obj.Name,
-                            part = petPart,
-                            distance = distance
-                        })
-                        
-                        if config.ESPEnabled then
-                            createESP(petPart, obj.Name, distance)
-                        end
-                    end
-                end
-            end
+    -- Scan Workspace important folders
+    addResult("
+🌍 Workspace:", Color3.fromRGB(100, 200, 255))
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Folder") or obj:IsA("Model") then
+            count = count + 1
+            local path = obj:GetFullName()
+            addResult(string.format("  📁 [%s] %s", obj.ClassName, path), Color3.fromRGB(150, 255, 150))
         end
     end
     
-    StatsLabel.Text = string.format("📊 Active Pets: %d", petCount)
+    addResult(string.format("
+✅ Found %d important objects", count), Color3.fromRGB(0, 255, 0))
 end
 
--- Main Loop
-task.spawn(function()
-    while task.wait(2) do
-        pcall(detectPets)
+local function exportAll()
+    clearResults()
+    addResult("═══ FULL GAME STRUCTURE EXPORT ═══", Color3.fromRGB(255, 0, 255))
+    
+    local export = "🔍 CATCH AND TAME - GAME STRUCTURE
+"
+    export = export .. "═══════════════════════════════════
+
+"
+    
+    -- RemoteEvents
+    export = export .. "📡 REMOTE EVENTS:
+"
+    for _, remote in pairs(scanResults.remoteEvents) do
+        export = export .. "  " .. remote .. "
+"
     end
-end)
+    
+    export = export .. "
+📞 REMOTE FUNCTIONS:
+"
+    for _, remote in pairs(scanResults.remoteFunctions) do
+        export = export .. "  " .. remote .. "
+"
+    end
+    
+    -- Pets
+    export = export .. "
+🦁 PETS/ANIMALS:
+"
+    for _, pet in pairs(scanResults.pets) do
+        export = export .. "  " .. pet .. "
+"
+    end
+    
+    -- Money
+    export = export .. "
+💰 MONEY/CURRENCY:
+"
+    for _, money in pairs(scanResults.money) do
+        if type(money) == "table" then
+            export = export .. string.format("  %s = %s
+", money.path, tostring(money.value))
+        else
+            export = export .. "  " .. money .. "
+"
+        end
+    end
+    
+    setclipboard(export)
+    addResult("✅ FULL EXPORT COPIED TO CLIPBOARD!", Color3.fromRGB(0, 255, 0))
+    addResult("", Color3.new(1, 1, 1))
+    addResult("Preview:", Color3.fromRGB(255, 255, 0))
+    
+    for line in export:gmatch("[^
+]+") do
+        addResult(line, Color3.fromRGB(200, 200, 200))
+    end
+end
 
--- Character Update
-player.CharacterAdded:Connect(function(newChar)
-    task.wait(0.5)
-    char = newChar
-    root = char:WaitForChild("HumanoidRootPart")
-end)
+-- Create Buttons
+createButton("🔍 Scan Remotes", Color3.fromRGB(255, 50, 50), scanRemotes)
+createButton("🦁 Scan Pets", Color3.fromRGB(255, 165, 0), scanPets)
+createButton("💰 Scan Money", Color3.fromRGB(255, 215, 0), scanMoney)
+createButton("⭐ Important", Color3.fromRGB(100, 150, 255), scanImportant)
+createButton("📋 Export All", Color3.fromRGB(200, 50, 200), exportAll)
 
-print("✅ Script Loaded Successfully!")
-notify("🦁 Script Loaded", "Catch & Tame ready!")
+-- Initial message
+addResult("👆 Click any button to start scanning", Color3.fromRGB(150, 150, 150))
+addResult("💡 Click on any result to copy it to clipboard", Color3.fromRGB(150, 150, 150))
+
+print("✅ Scanner GUI Loaded!")
+print("🔍 Use the buttons to scan different parts of the game")

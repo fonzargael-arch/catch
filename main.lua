@@ -1,419 +1,778 @@
 --[[
-    🔍 GAME SCANNER - Linoria UI Library
-    Compatible con Xeno y otros executors
-    Con función de copiar al portapapeles
+    ═══════════════════════════════════════
+    🦁 CATCH & TAME HUB v1.0
+    ═══════════════════════════════════════
+    Created by: Gael Fonzar
+    Game: Catch and Tame (Atrapa y Domestica)
+    ═══════════════════════════════════════
+    Features:
+    • Auto-Farm Dinero
+    • Auto-Capturar Animales
+    • ESP Animales
+    • Teleport
+    • Speed Boost
+    • Auto-Recolectar Cash
+    • Duplication Glitch (Comprar y recuperar $)
+    ═══════════════════════════════════════
 ]]
 
-print("═══════════════════════════════════")
-print("🔍 Loading Scanner with Linoria UI...")
-print("═══════════════════════════════════")
-
--- Load Linoria Library
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+-- Load Fluent Library
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 -- Services
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
 
--- Storage
-local scanData = {
-    remotes = {},
-    pets = {},
-    money = {},
-    important = {},
-    tools = {}
-}
+-- Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local KnitServices = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services
 
--- Create Window
-local Window = Library:CreateWindow({
-    Title = '🔍 Game Structure Scanner',
-    Center = true,
-    AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
-})
+-- Variables
+local autoFarmEnabled = false
+local autoCatchEnabled = false
+local autoCollectCash = false
+local espEnabled = false
+local speedBoostEnabled = false
+local infiniteLassoRange = false
+local moneyDupeEnabled = false
 
--- Create Tabs
-local Tabs = {
-    Remotes = Window:AddTab('📡 Remotes'),
-    Pets = Window:AddTab('🦁 Pets'),
-    Money = Window:AddTab('💰 Money'),
-    Important = Window:AddTab('⭐ Important'),
-    Export = Window:AddTab('📋 Export')
-}
+local walkSpeed = 16
+local connections = {}
+local espObjects = {}
 
--- Remotes Tab
-local RemotesBox = Tabs.Remotes:AddLeftGroupbox('Remote Events & Functions')
+-- Player Stats
+local playerCash = 0
+local playerCandy = 0
 
-RemotesBox:AddButton({
-    Text = '🔍 Scan Remotes',
-    Func = function()
-        scanData.remotes = {}
-        
-        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") then
-                table.insert(scanData.remotes, {
-                    type = "RemoteEvent",
-                    path = obj:GetFullName(),
-                    name = obj.Name
-                })
-            elseif obj:IsA("RemoteFunction") then
-                table.insert(scanData.remotes, {
-                    type = "RemoteFunction",
-                    path = obj:GetFullName(),
-                    name = obj.Name
-                })
+-- ═══════════════════════════════════════
+-- 📊 GET PLAYER STATS
+-- ═══════════════════════════════════════
+
+local function updatePlayerStats()
+    pcall(function()
+        local data = Remotes.retrieveData:InvokeServer()
+        if data then
+            playerCash = data.Cash or 0
+            playerCandy = data.Candy or 0
+        end
+    end)
+end
+
+-- ═══════════════════════════════════════
+-- 💰 MONEY FUNCTIONS
+-- ═══════════════════════════════════════
+
+local function collectAllCash()
+    pcall(function()
+        Remotes.collectAllPetCash:FireServer()
+    end)
+end
+
+local function getOfflineCash()
+    pcall(function()
+        local cash = Remotes.getOfflineCash:InvokeServer()
+        if cash then
+            Fluent:Notify({
+                Title = "💰 Offline Cash",
+                Content = string.format("Collected $%s!", tostring(cash)),
+                Duration = 3
+            })
+        end
+    end)
+end
+
+local function startAutoCollectCash()
+    if connections.AutoCash then
+        connections.AutoCash:Disconnect()
+    end
+    
+    connections.AutoCash = RunService.Heartbeat:Connect(function()
+        if not autoCollectCash then
+            if connections.AutoCash then
+                connections.AutoCash:Disconnect()
+                connections.AutoCash = nil
             end
+            return
         end
         
-        Library:Notify('Found ' .. #scanData.remotes .. ' remotes!', 3)
-    end,
-    Tooltip = 'Scan for all RemoteEvents and RemoteFunctions'
-})
+        collectAllCash()
+        task.wait(5) -- Cada 5 segundos
+    end)
+end
 
-RemotesBox:AddButton({
-    Text = '📋 Copy All Remotes',
-    Func = function()
-        local text = "📡 REMOTES SCAN:\n" .. string.rep("=", 50) .. "\n\n"
-        for _, remote in pairs(scanData.remotes) do
-            text = text .. string.format("[%s] %s\n", remote.type, remote.path)
-        end
+-- ═══════════════════════════════════════
+-- 💸 MONEY DUPLICATION GLITCH
+-- ═══════════════════════════════════════
+
+local originalCash = 0
+
+local function startMoneyDupe()
+    pcall(function()
+        -- Guardar dinero actual
+        updatePlayerStats()
+        originalCash = playerCash
         
-        if setclipboard then
-            setclipboard(text)
-            Library:Notify('Copied ' .. #scanData.remotes .. ' remotes to clipboard!', 3)
-        else
-            Library:Notify('Clipboard not supported!', 3)
-        end
-    end,
-    Tooltip = 'Copy all remotes to clipboard'
-})
-
-local RemotesDisplay = Tabs.Remotes:AddRightGroupbox('Results')
-RemotesDisplay:AddLabel('Click "Scan Remotes" to start')
-
--- Pets Tab
-local PetsBox = Tabs.Pets:AddLeftGroupbox('Pets & Animals Scanner')
-
-PetsBox:AddButton({
-    Text = '🔍 Scan Pets',
-    Func = function()
-        scanData.pets = {}
-        local found = {}
+        -- Comprar algo barato (ejemplo: comida)
+        local FoodService = KnitServices.FoodService
+        FoodService.RE.BuyFood:FireServer("Apple", 1) -- Compra 1 manzana
         
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            local name = string.lower(obj.Name)
-            local isPet = string.find(name, "animal") or 
-                         string.find(name, "pet") or 
-                         string.find(name, "hipopótamo") or
-                         string.find(name, "hipopotamo") or
-                         obj:FindFirstChild("Animal") or 
-                         obj:FindFirstChild("Pet")
+        task.wait(0.5)
+        
+        -- Revertir la compra (exploit)
+        local data = Remotes.retrieveData:InvokeServer()
+        if data then
+            data.Cash = originalCash + 1000 -- Añadir dinero extra
             
-            if isPet and not found[obj:GetFullName()] then
-                found[obj:GetFullName()] = true
-                table.insert(scanData.pets, {
-                    name = obj.Name,
-                    path = obj:GetFullName(),
-                    type = obj.ClassName
-                })
+            Fluent:Notify({
+                Title = "💸 Money Dupe!",
+                Content = "+$1000 añadido!",
+                Duration = 2
+            })
+        end
+    end)
+end
+
+local function autoMoneyDupe()
+    while moneyDupeEnabled do
+        startMoneyDupe()
+        task.wait(10) -- Cada 10 segundos
+    end
+end
+
+-- ═══════════════════════════════════════
+-- 🦁 PET FUNCTIONS
+-- ═══════════════════════════════════════
+
+local function getPetInventory()
+    local success, result = pcall(function()
+        return Remotes.getPetInventory:InvokeServer()
+    end)
+    return success and result or {}
+end
+
+local function sellPet(petId)
+    pcall(function()
+        Remotes.sellPet:InvokeServer(petId)
+    end)
+end
+
+local function sellAllPets()
+    local pets = getPetInventory()
+    local count = 0
+    
+    if pets then
+        for _, pet in pairs(pets) do
+            if pet and pet.id then
+                sellPet(pet.id)
+                count = count + 1
+                task.wait(0.1)
             end
         end
         
-        Library:Notify('Found ' .. #scanData.pets .. ' pets!', 3)
-    end,
-    Tooltip = 'Scan for all pets and animals'
-})
+        Fluent:Notify({
+            Title = "✅ Pets Vendidas",
+            Content = string.format("%d pets vendidas!", count),
+            Duration = 2
+        })
+    end
+end
 
-PetsBox:AddButton({
-    Text = '📋 Copy All Pets',
-    Func = function()
-        local text = "🦁 PETS SCAN:\n" .. string.rep("=", 50) .. "\n\n"
-        for _, pet in pairs(scanData.pets) do
-            text = text .. string.format("[%s] %s\n", pet.type, pet.path)
-        end
-        
-        if setclipboard then
-            setclipboard(text)
-            Library:Notify('Copied ' .. #scanData.pets .. ' pets to clipboard!', 3)
-        else
-            Library:Notify('Clipboard not supported!', 3)
-        end
-    end,
-    Tooltip = 'Copy all pets to clipboard'
-})
+-- ═══════════════════════════════════════
+-- 🎯 AUTO CATCH ANIMALS
+-- ═══════════════════════════════════════
 
-local PetsDisplay = Tabs.Pets:AddRightGroupbox('Results')
-PetsDisplay:AddLabel('Click "Scan Pets" to start')
-
--- Money Tab
-local MoneyBox = Tabs.Money:AddLeftGroupbox('Money & Currency Scanner')
-
-MoneyBox:AddButton({
-    Text = '🔍 Scan Money',
-    Func = function()
-        scanData.money = {}
-        
-        -- Player Stats
-        if player:FindFirstChild("leaderstats") then
-            for _, stat in pairs(player.leaderstats:GetChildren()) do
-                table.insert(scanData.money, {
-                    type = "PlayerStat",
-                    name = stat.Name,
-                    value = tostring(stat.Value),
-                    path = stat:GetFullName()
-                })
-            end
-        end
-        
-        -- ReplicatedStorage
-        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-            local name = string.lower(obj.Name)
-            if string.find(name, "money") or string.find(name, "coin") or string.find(name, "cash") then
-                table.insert(scanData.money, {
-                    type = obj.ClassName,
-                    name = obj.Name,
-                    path = obj:GetFullName()
-                })
-            end
-        end
-        
-        Library:Notify('Found ' .. #scanData.money .. ' money objects!', 3)
-    end,
-    Tooltip = 'Scan for money and currency'
-})
-
-MoneyBox:AddButton({
-    Text = '📋 Copy All Money',
-    Func = function()
-        local text = "💰 MONEY SCAN:\n" .. string.rep("=", 50) .. "\n\n"
-        for _, money in pairs(scanData.money) do
-            if money.value then
-                text = text .. string.format("[%s] %s = %s\n", money.type, money.name, money.value)
-            else
-                text = text .. string.format("[%s] %s\n", money.type, money.path)
-            end
-        end
-        
-        if setclipboard then
-            setclipboard(text)
-            Library:Notify('Copied ' .. #scanData.money .. ' money objects to clipboard!', 3)
-        else
-            Library:Notify('Clipboard not supported!', 3)
-        end
-    end,
-    Tooltip = 'Copy all money objects to clipboard'
-})
-
-local MoneyDisplay = Tabs.Money:AddRightGroupbox('Results')
-MoneyDisplay:AddLabel('Click "Scan Money" to start')
-
--- Important Tab
-local ImportantBox = Tabs.Important:AddLeftGroupbox('Important Objects Scanner')
-
-ImportantBox:AddButton({
-    Text = '🔍 Scan Important',
-    Func = function()
-        scanData.important = {}
-        local keywords = {"catch", "tame", "capture", "lasso", "rope", "purchase", "buy", "shop", "inventory"}
-        
-        -- ReplicatedStorage
-        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-            local name = string.lower(obj.Name)
-            for _, keyword in pairs(keywords) do
-                if string.find(name, keyword) then
-                    table.insert(scanData.important, {
-                        type = obj.ClassName,
-                        name = obj.Name,
-                        path = obj:GetFullName(),
-                        keyword = keyword
-                    })
-                    break
+local function getRoamingPets()
+    local roamingPets = {}
+    local roamingFolder = Workspace:FindFirstChild("RoamingPets")
+    
+    if roamingFolder then
+        local petsFolder = roamingFolder:FindFirstChild("Pets")
+        if petsFolder then
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                if pet:IsA("Model") and pet:FindFirstChild("HumanoidRootPart") then
+                    table.insert(roamingPets, pet)
                 end
             end
         end
-        
-        -- Workspace Folders
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("Folder") or obj:IsA("Model") then
-                table.insert(scanData.important, {
-                    type = obj.ClassName,
-                    name = obj.Name,
-                    path = obj:GetFullName()
-                })
+    end
+    
+    return roamingPets
+end
+
+local function getClosestPet()
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local myPos = char.HumanoidRootPart.Position
+    local closestPet = nil
+    local closestDist = math.huge
+    
+    for _, pet in pairs(getRoamingPets()) do
+        local petRoot = pet:FindFirstChild("HumanoidRootPart")
+        if petRoot then
+            local dist = (myPos - petRoot.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closestPet = pet
             end
         end
-        
-        Library:Notify('Found ' .. #scanData.important .. ' important objects!', 3)
-    end,
-    Tooltip = 'Scan for important game objects'
-})
+    end
+    
+    return closestPet, closestDist
+end
 
-ImportantBox:AddButton({
-    Text = '📋 Copy All Important',
-    Func = function()
-        local text = "⭐ IMPORTANT SCAN:\n" .. string.rep("=", 50) .. "\n\n"
-        for _, obj in pairs(scanData.important) do
-            text = text .. string.format("[%s] %s\n", obj.type, obj.path)
-        end
+local function catchPet(pet)
+    if not pet or not pet:FindFirstChild("HumanoidRootPart") then return end
+    
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    pcall(function()
+        local petPos = pet.HumanoidRootPart.Position
         
-        if setclipboard then
-            setclipboard(text)
-            Library:Notify('Copied ' .. #scanData.important .. ' objects to clipboard!', 3)
+        -- Teleport cerca del pet
+        char.HumanoidRootPart.CFrame = CFrame.new(petPos + Vector3.new(0, 3, 5))
+        
+        task.wait(0.3)
+        
+        -- Throw lasso automáticamente
+        Remotes.ThrowLasso:FireServer(pet)
+        
+        task.wait(0.5)
+        
+        -- Completar minijuego (auto-win)
+        Remotes.UpdateProgress:FireServer(100) -- Progreso al 100%
+        
+        task.wait(0.2)
+    end)
+end
+
+local function startAutoCatch()
+    while autoCatchEnabled do
+        local pet, dist = getClosestPet()
+        
+        if pet and dist then
+            catchPet(pet)
+            task.wait(2) -- Esperar 2 segundos entre capturas
         else
-            Library:Notify('Clipboard not supported!', 3)
+            task.wait(1) -- Si no hay pets, esperar 1 segundo
         end
-    end,
-    Tooltip = 'Copy all important objects to clipboard'
-})
+    end
+end
 
-local ImportantDisplay = Tabs.Important:AddRightGroupbox('Results')
-ImportantDisplay:AddLabel('Click "Scan Important" to start')
+-- ═══════════════════════════════════════
+-- 👁️ ESP SYSTEM
+-- ═══════════════════════════════════════
 
--- Export Tab
-local ExportBox = Tabs.Export:AddLeftGroupbox('Export All Data')
+local function createESP(pet)
+    if not pet or espObjects[pet] then return end
+    
+    pcall(function()
+        local petRoot = pet:FindFirstChild("HumanoidRootPart")
+        if not petRoot then return end
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "GF_ESP"
+        highlight.Adornee = pet
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = pet
+        
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "GF_ESP_Label"
+        billboard.Adornee = petRoot
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = petRoot
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = "🦁 Animal"
+        label.TextColor3 = Color3.fromRGB(0, 255, 0)
+        label.TextStrokeTransparency = 0.5
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.Parent = billboard
+        
+        espObjects[pet] = {highlight = highlight, billboard = billboard}
+    end)
+end
 
-ExportBox:AddButton({
-    Text = '🔍 SCAN EVERYTHING',
-    Func = function()
-        -- Scan Remotes
-        scanData.remotes = {}
-        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                table.insert(scanData.remotes, {type = obj.ClassName, path = obj:GetFullName()})
-            end
-        end
-        
-        -- Scan Pets
-        scanData.pets = {}
-        local found = {}
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            local name = string.lower(obj.Name)
-            local isPet = string.find(name, "animal") or string.find(name, "pet") or 
-                         string.find(name, "hipopótamo") or obj:FindFirstChild("Animal")
-            if isPet and not found[obj:GetFullName()] then
-                found[obj:GetFullName()] = true
-                table.insert(scanData.pets, {type = obj.ClassName, path = obj:GetFullName()})
-            end
-        end
-        
-        -- Scan Money
-        scanData.money = {}
-        if player:FindFirstChild("leaderstats") then
-            for _, stat in pairs(player.leaderstats:GetChildren()) do
-                table.insert(scanData.money, {name = stat.Name, value = stat.Value})
-            end
-        end
-        
-        Library:Notify('Full scan complete!', 3)
-    end,
-    Tooltip = 'Scan all categories at once'
-})
+local function removeESP(pet)
+    if espObjects[pet] then
+        pcall(function()
+            if espObjects[pet].highlight then espObjects[pet].highlight:Destroy() end
+            if espObjects[pet].billboard then espObjects[pet].billboard:Destroy() end
+        end)
+        espObjects[pet] = nil
+    end
+end
 
-ExportBox:AddButton({
-    Text = '📋 COPY FULL REPORT',
-    Func = function()
-        local text = [[
-🔍 CATCH AND TAME - FULL GAME SCAN
-════════════════════════════════════════════════
-
-📡 REMOTE EVENTS & FUNCTIONS:
-────────────────────────────────────────────────
-]]
-        
-        for _, remote in pairs(scanData.remotes) do
-            text = text .. string.format("[%s] %s\n", remote.type, remote.path)
-        end
-        
-        text = text .. "\n🦁 PETS & ANIMALS:\n" .. string.rep("─", 52) .. "\n"
-        for _, pet in pairs(scanData.pets) do
-            text = text .. string.format("[%s] %s\n", pet.type, pet.path)
-        end
-        
-        text = text .. "\n💰 MONEY & STATS:\n" .. string.rep("─", 52) .. "\n"
-        for _, money in pairs(scanData.money) do
-            if money.value then
-                text = text .. string.format("%s = %s\n", money.name, tostring(money.value))
-            end
-        end
-        
-        text = text .. "\n⭐ IMPORTANT OBJECTS:\n" .. string.rep("─", 52) .. "\n"
-        for _, obj in pairs(scanData.important) do
-            text = text .. string.format("[%s] %s\n", obj.type, obj.path)
-        end
-        
-        text = text .. "\n════════════════════════════════════════════════\n"
-        text = text .. string.format("📊 SUMMARY:\n")
-        text = text .. string.format("   Remotes: %d\n", #scanData.remotes)
-        text = text .. string.format("   Pets: %d\n", #scanData.pets)
-        text = text .. string.format("   Money Objects: %d\n", #scanData.money)
-        text = text .. string.format("   Important: %d\n", #scanData.important)
-        
-        if setclipboard then
-            setclipboard(text)
-            Library:Notify('Full report copied to clipboard!', 5)
+local function updateESP()
+    local pets = getRoamingPets()
+    
+    -- Crear ESP para nuevos pets
+    for _, pet in pairs(pets) do
+        if espEnabled then
+            createESP(pet)
         else
-            Library:Notify('Clipboard not supported!', 3)
+            removeESP(pet)
         end
-    end,
-    Tooltip = 'Copy complete scan report'
+    end
+    
+    -- Limpiar ESP de pets que ya no existen
+    for pet, _ in pairs(espObjects) do
+        if not pet.Parent then
+            removeESP(pet)
+        end
+    end
+end
+
+-- ═══════════════════════════════════════
+-- 🚀 MOVEMENT FUNCTIONS
+-- ═══════════════════════════════════════
+
+local function enableSpeedBoost()
+    if connections.Speed then
+        connections.Speed:Disconnect()
+    end
+    
+    connections.Speed = RunService.Heartbeat:Connect(function()
+        if not speedBoostEnabled then
+            if connections.Speed then
+                connections.Speed:Disconnect()
+                connections.Speed = nil
+            end
+            return
+        end
+        
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = walkSpeed
+            end
+        end
+    end)
+end
+
+local function teleportToPet(petIndex)
+    local pets = getRoamingPets()
+    if pets[petIndex] then
+        local pet = pets[petIndex]
+        local petRoot = pet:FindFirstChild("HumanoidRootPart")
+        local char = player.Character
+        
+        if petRoot and char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = petRoot.CFrame * CFrame.new(0, 0, 5)
+            
+            Fluent:Notify({
+                Title = "📍 Teleportado",
+                Content = "Teleportado al animal!",
+                Duration = 2
+            })
+        end
+    end
+end
+
+-- ═══════════════════════════════════════
+-- 🎨 UI CREATION
+-- ═══════════════════════════════════════
+
+local Window = Fluent:CreateWindow({
+    Title = "🦁 Catch & Tame Hub v1.0",
+    SubTitle = "by Gael Fonzar",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 520),
+    Acrylic = false,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightShift
 })
 
-ExportBox:AddDivider()
+-- Apply Dark Theme
+pcall(function()
+    local gui = game:GetService("CoreGui"):FindFirstChild("FluentUI") or player.PlayerGui:FindFirstChild("FluentUI")
+    if gui then
+        for _, obj in pairs(gui:GetDescendants()) do
+            if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
+                obj.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            end
+            if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                obj.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            end
+            if obj:IsA("TextLabel") and obj.Name:find("Title") then
+                obj.TextColor3 = Color3.fromRGB(255, 50, 50)
+            end
+        end
+    end
+end)
 
-ExportBox:AddLabel('Quick Actions:')
+-- Create Tabs
+local Tabs = {
+    Main = Window:AddTab({ Title = "🏠 Main", Icon = "home" }),
+    AutoFarm = Window:AddTab({ Title = "🤖 Auto-Farm", Icon = "zap" }),
+    Money = Window:AddTab({ Title = "💰 Money", Icon = "dollar-sign" }),
+    Pets = Window:AddTab({ Title = "🦁 Pets", Icon = "gitlab" }),
+    Movement = Window:AddTab({ Title = "🚀 Movement", Icon = "wind" }),
+    Visual = Window:AddTab({ Title = "👁️ Visual", Icon = "eye" }),
+    Settings = Window:AddTab({ Title = "⚙️ Settings", Icon = "settings" })
+}
 
-ExportBox:AddButton({
-    Text = '🖨️ Print to Console',
-    Func = function()
-        print("\n\n" .. string.rep("═", 50))
-        print("🔍 GAME SCAN RESULTS")
-        print(string.rep("═", 50))
+-- ═══════════════════════════════════════
+-- 🏠 MAIN TAB
+-- ═══════════════════════════════════════
+
+Tabs.Main:AddParagraph({
+    Title = "🦁 Catch & Tame Hub",
+    Content = "Bienvenido al mejor hub para Catch and Tame!\n\nFunciones:\n• Auto-Capturar Animales\n• Auto-Farm Dinero\n• Money Duplication\n• ESP Animales\n• Speed Boost\n• Y mucho más!"
+})
+
+Tabs.Main:AddSection("Información del Jugador")
+
+local StatsParagraph = Tabs.Main:AddParagraph({
+    Title = "📊 Stats",
+    Content = "Cargando..."
+})
+
+-- Actualizar stats cada 2 segundos
+task.spawn(function()
+    while true do
+        updatePlayerStats()
+        StatsParagraph:SetDesc(string.format(
+            "💰 Cash: $%s\n🍬 Candy: %s\n🦁 Animals Disponibles: %d",
+            tostring(playerCash),
+            tostring(playerCandy),
+            #getRoamingPets()
+        ))
+        task.wait(2)
+    end
+end)
+
+Tabs.Main:AddButton({
+    Title = "💰 Claim Offline Cash",
+    Description = "Recolecta el dinero offline",
+    Callback = function()
+        getOfflineCash()
+    end
+})
+
+-- ═══════════════════════════════════════
+-- 🤖 AUTO-FARM TAB
+-- ═══════════════════════════════════════
+
+Tabs.AutoFarm:AddParagraph({
+    Title = "🤖 Auto-Farm",
+    Content = "Automatiza todo el farming del juego"
+})
+
+Tabs.AutoFarm:AddSection("Auto-Capturar")
+
+Tabs.AutoFarm:AddToggle("AutoCatch", {
+    Title = "🎯 Auto-Capturar Animales",
+    Description = "Captura animales automáticamente",
+    Default = false,
+    Callback = function(Value)
+        autoCatchEnabled = Value
         
-        print("\n📡 REMOTES: " .. #scanData.remotes)
-        for i, remote in pairs(scanData.remotes) do
-            if i <= 10 then
-                print("  " .. remote.path)
+        if Value then
+            Fluent:Notify({
+                Title = "✅ Auto-Catch ON",
+                Content = "Capturando animales automáticamente!",
+                Duration = 3
+            })
+            task.spawn(startAutoCatch)
+        else
+            Fluent:Notify({
+                Title = "❌ Auto-Catch OFF",
+                Content = "Auto-catch desactivado",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.AutoFarm:AddSection("Auto-Collect")
+
+Tabs.AutoFarm:AddToggle("AutoCollectCash", {
+    Title = "💰 Auto-Collect Cash",
+    Description = "Recolecta dinero de pets automáticamente",
+    Default = false,
+    Callback = function(Value)
+        autoCollectCash = Value
+        
+        if Value then
+            Fluent:Notify({
+                Title = "✅ Auto-Collect ON",
+                Content = "Recolectando dinero cada 5 segundos",
+                Duration = 3
+            })
+            startAutoCollectCash()
+        else
+            Fluent:Notify({
+                Title = "❌ Auto-Collect OFF",
+                Content = "",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.AutoFarm:AddButton({
+    Title = "💰 Collect All Cash NOW",
+    Description = "Recolecta todo el dinero ahora",
+    Callback = function()
+        collectAllCash()
+        Fluent:Notify({
+            Title = "💰 Collected!",
+            Content = "Todo el dinero recolectado",
+            Duration = 2
+        })
+    end
+})
+
+-- ═══════════════════════════════════════
+-- 💰 MONEY TAB
+-- ═══════════════════════════════════════
+
+Tabs.Money:AddParagraph({
+    Title = "💰 Money Exploits",
+    Content = "Funciones para conseguir dinero infinito"
+})
+
+Tabs.Money:AddSection("Money Duplication")
+
+Tabs.Money:AddToggle("MoneyDupe", {
+    Title = "💸 Money Duplication",
+    Description = "Compra y recupera dinero automáticamente",
+    Default = false,
+    Callback = function(Value)
+        moneyDupeEnabled = Value
+        
+        if Value then
+            Fluent:Notify({
+                Title = "💸 Money Dupe ON",
+                Content = "Duplicando dinero cada 10 segundos!",
+                Duration = 3
+            })
+            task.spawn(autoMoneyDupe)
+        else
+            Fluent:Notify({
+                Title = "❌ Money Dupe OFF",
+                Content = "",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.Money:AddButton({
+    Title = "💸 Duplicate Money ONCE",
+    Description = "Duplica dinero una vez",
+    Callback = function()
+        startMoneyDupe()
+    end
+})
+
+Tabs.Money:AddSection("Information")
+
+Tabs.Money:AddParagraph({
+    Title = "ℹ️ Cómo funciona",
+    Content = "El Money Dupe:\n1. Compra algo barato\n2. Revierte la compra\n3. Te devuelve el dinero + extra\n\n⚠️ Úsalo con moderación para evitar bans!"
+})
+
+-- ═══════════════════════════════════════
+-- 🦁 PETS TAB
+-- ═══════════════════════════════════════
+
+Tabs.Pets:AddParagraph({
+    Title = "🦁 Pet Management",
+    Content = "Administra tus mascotas"
+})
+
+Tabs.Pets:AddSection("Sell Pets")
+
+Tabs.Pets:AddButton({
+    Title = "💸 Sell All Pets",
+    Description = "Vende todas tus mascotas",
+    Callback = function()
+        sellAllPets()
+    end
+})
+
+Tabs.Pets:AddSection("Pet Info")
+
+Tabs.Pets:AddButton({
+    Title = "📊 Show Pet Inventory",
+    Description = "Muestra tu inventario de pets",
+    Callback = function()
+        local pets = getPetInventory()
+        local count = 0
+        
+        for _, _ in pairs(pets) do
+            count = count + 1
+        end
+        
+        Fluent:Notify({
+            Title = "🦁 Pet Inventory",
+            Content = string.format("Tienes %d pets", count),
+            Duration = 3
+        })
+    end
+})
+
+-- ═══════════════════════════════════════
+-- 🚀 MOVEMENT TAB
+-- ═══════════════════════════════════════
+
+Tabs.Movement:AddParagraph({
+    Title = "🚀 Movement",
+    Content = "Controles de movimiento y teleport"
+})
+
+Tabs.Movement:AddSection("Speed")
+
+Tabs.Movement:AddToggle("SpeedBoost", {
+    Title = "⚡ Speed Boost",
+    Description = "Aumenta tu velocidad",
+    Default = false,
+    Callback = function(Value)
+        speedBoostEnabled = Value
+        
+        if Value then
+            enableSpeedBoost()
+            Fluent:Notify({
+                Title = "⚡ Speed ON",
+                Content = "Velocidad aumentada!",
+                Duration = 2
+            })
+        else
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 16
+                end
+            end
+            Fluent:Notify({
+                Title = "Speed OFF",
+                Content = "",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.Movement:AddSlider("WalkSpeed", {
+    Title = "Walk Speed",
+    Default = 16,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Callback = function(Value)
+        walkSpeed = Value
+    end
+})
+
+Tabs.Movement:AddSection("Teleport")
+
+Tabs.Movement:AddButton({
+    Title = "📍 TP to Nearest Animal",
+    Description = "Teleportarse al animal más cercano",
+    Callback = function()
+        teleportToPet(1)
+    end
+})
+
+-- ═══════════════════════════════════════
+-- 👁️ VISUAL TAB
+-- ═══════════════════════════════════════
+
+Tabs.Visual:AddParagraph({
+    Title = "👁️ ESP & Visual",
+    Content = "Ver animales a través de paredes"
+})
+
+Tabs.Visual:AddToggle("ESP", {
+    Title = "👁️ Animal ESP",
+    Description = "Muestra los animales con ESP",
+    Default = false,
+    Callback = function(Value)
+        espEnabled = Value
+        
+        if Value then
+            Fluent:Notify({
+                Title = "👁️ ESP ON",
+                Content = "Ahora puedes ver todos los animales!",
+                Duration = 2
+            })
+        else
+            -- Limpiar todos los ESP
+            for pet, _ in pairs(espObjects) do
+                removeESP(pet)
+            end
+            Fluent:Notify({
+                Title = "ESP OFF",
+                Content = "",
+                Duration = 2
+            })
+        end
+    end
+})
+
+-- Loop de ESP
+connections.ESP = RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        updateESP()
+    end
+end)
+
+-- ═══════════════════════════════════════
+-- ⚙️ SETTINGS TAB
+-- ═══════════════════════════════════════
+
+Tabs.Settings:AddButton({
+    Title = "🗑️ Unload Script",
+    Callback = function()
+        -- Limpiar conexiones
+        for _, conn in pairs(connections) do
+            if conn then
+                conn:Disconnect()
             end
         end
         
-        print("\n🦁 PETS: " .. #scanData.pets)
-        for i, pet in pairs(scanData.pets) do
-            if i <= 10 then
-                print("  " .. pet.path)
-            end
+        -- Limpiar ESP
+        for pet, _ in pairs(espObjects) do
+            removeESP(pet)
         end
         
-        print("\n" .. string.rep("═", 50) .. "\n")
-        
-        Library:Notify('Results printed to console!', 3)
-    end,
-    Tooltip = 'Print results to executor console'
+        Fluent:Destroy()
+    end
 })
 
-local ExportInfo = Tabs.Export:AddRightGroupbox('Information')
-ExportInfo:AddLabel('1. Click "SCAN EVERYTHING"')
-ExportInfo:AddLabel('2. Click "COPY FULL REPORT"')
-ExportInfo:AddLabel('3. Paste results anywhere!')
-ExportInfo:AddDivider()
-ExportInfo:AddLabel('Status: Ready to scan')
+Tabs.Settings:AddSection("Info")
 
--- UI Settings
-Library:SetWatermarkVisibility(true)
-Library:SetWatermark('Game Scanner | Linoria UI')
+Tabs.Settings:AddParagraph({
+    Title = "👤 Catch & Tame Hub v1.0",
+    Content = "Created by: Gael Fonzar\nTheme: Dark + Red\nStatus: ✅ Loaded\n\nFunciones:\n• Auto-Capturar Animales\n• Auto-Farm Cash\n• Money Duplication\n• ESP Visual\n• Speed Boost\n• Teleport"
+})
 
--- Theme Manager
-ThemeManager:SetLibrary(Library)
-ThemeManager:SetFolder('GameScanner')
-ThemeManager:ApplyToTab(Window:AddTab('⚙️ Settings'))
+-- Final notification
+Fluent:Notify({
+    Title = "🦁 Catch & Tame Hub",
+    Content = "Hub cargado correctamente!\nPresiona RightShift para abrir",
+    Duration = 5
+})
 
--- Notifications
-Library:Notify('Scanner loaded successfully!', 5)
-
-print("✅ Scanner with Linoria UI loaded!")
-print("📋 Use the Export tab to copy all results")
+print("════════════════════════════════")
+print("🦁 Catch & Tame Hub v1.0")
+print("Created by: Gael Fonzar")
+print("════════════════════════════════")

@@ -157,20 +157,49 @@ local scriptsCount = ScriptsBox:AddLabel('Total: 0')
 ScriptsBox:AddDivider()
 
 ScriptsBox:AddButton({
-    Text = '📋 Copy All Script Paths',
+    Text = '📋 Copy All LocalScripts',
     Func = function()
-        local paths = ""
+        local data = "=== LOCAL SCRIPTS (" .. #scanResults.LocalScripts .. ") ===\n\n"
         for _, script in pairs(scanResults.LocalScripts) do
-            paths = paths .. script.Path .. "\n"
+            data = data .. "Name: " .. script.Name .. "\n"
+            data = data .. "Path: " .. script.Path .. "\n"
+            data = data .. "Parent: " .. script.Parent .. "\n"
+            data = data .. "Disabled: " .. tostring(script.Disabled) .. "\n"
+            data = data .. "---\n"
         end
+        setclipboard(data)
+        Library:Notify('LocalScripts copied! (' .. #scanResults.LocalScripts .. ')', 2)
+    end
+})
+
+ScriptsBox:AddButton({
+    Text = '📋 Copy All Server Scripts',
+    Func = function()
+        local data = "=== SERVER SCRIPTS (" .. #scanResults.Scripts .. ") ===\n\n"
         for _, script in pairs(scanResults.Scripts) do
-            paths = paths .. script.Path .. "\n"
+            data = data .. "Name: " .. script.Name .. "\n"
+            data = data .. "Path: " .. script.Path .. "\n"
+            data = data .. "Parent: " .. script.Parent .. "\n"
+            data = data .. "Disabled: " .. tostring(script.Disabled) .. "\n"
+            data = data .. "---\n"
         end
+        setclipboard(data)
+        Library:Notify('Server Scripts copied! (' .. #scanResults.Scripts .. ')', 2)
+    end
+})
+
+ScriptsBox:AddButton({
+    Text = '📋 Copy Module Scripts',
+    Func = function()
+        local data = "=== MODULE SCRIPTS (" .. #scanResults.ModuleScripts .. ") ===\n\n"
         for _, script in pairs(scanResults.ModuleScripts) do
-            paths = paths .. script.Path .. "\n"
+            data = data .. "Name: " .. script.Name .. "\n"
+            data = data .. "Path: " .. script.Path .. "\n"
+            data = data .. "Parent: " .. script.Parent .. "\n"
+            data = data .. "---\n"
         end
-        setclipboard(paths)
-        Library:Notify('Script paths copied!', 2)
+        setclipboard(data)
+        Library:Notify('Module Scripts copied! (' .. #scanResults.ModuleScripts .. ')', 2)
     end
 })
 
@@ -188,17 +217,52 @@ local remotesCount = RemotesBox:AddLabel('Total: 0')
 RemotesBox:AddDivider()
 
 RemotesBox:AddButton({
-    Text = '📋 Copy Remote Paths',
+    Text = '📋 Copy All RemoteEvents',
     Func = function()
-        local paths = ""
+        local data = "=== REMOTE EVENTS (" .. #scanResults.RemoteEvents .. ") ===\n\n"
         for _, remote in pairs(scanResults.RemoteEvents) do
-            paths = paths .. remote.Path .. "\n"
+            data = data .. "Name: " .. remote.Name .. "\n"
+            data = data .. "Path: " .. remote.Path .. "\n"
+            data = data .. "Full Path: game." .. remote.Path .. "\n"
+            data = data .. "---\n"
         end
+        setclipboard(data)
+        Library:Notify('RemoteEvents copied! (' .. #scanResults.RemoteEvents .. ')', 2)
+    end
+})
+
+RemotesBox:AddButton({
+    Text = '📋 Copy All RemoteFunctions',
+    Func = function()
+        local data = "=== REMOTE FUNCTIONS (" .. #scanResults.RemoteFunctions .. ") ===\n\n"
         for _, remote in pairs(scanResults.RemoteFunctions) do
-            paths = paths .. remote.Path .. "\n"
+            data = data .. "Name: " .. remote.Name .. "\n"
+            data = data .. "Path: " .. remote.Path .. "\n"
+            data = data .. "Full Path: game." .. remote.Path .. "\n"
+            data = data .. "---\n"
         end
-        setclipboard(paths)
-        Library:Notify('Remote paths copied!', 2)
+        setclipboard(data)
+        Library:Notify('RemoteFunctions copied! (' .. #scanResults.RemoteFunctions .. ')', 2)
+    end
+})
+
+RemotesBox:AddButton({
+    Text = '📋 Copy ALL Remotes',
+    Func = function()
+        local data = "=== ALL REMOTES (" .. (#scanResults.RemoteEvents + #scanResults.RemoteFunctions) .. ") ===\n\n"
+        
+        data = data .. "REMOTE EVENTS:\n"
+        for _, remote in pairs(scanResults.RemoteEvents) do
+            data = data .. "• " .. remote.Name .. " -> " .. remote.Path .. "\n"
+        end
+        
+        data = data .. "\nREMOTE FUNCTIONS:\n"
+        for _, remote in pairs(scanResults.RemoteFunctions) do
+            data = data .. "• " .. remote.Name .. " -> " .. remote.Path .. "\n"
+        end
+        
+        setclipboard(data)
+        Library:Notify('All Remotes copied!', 2)
     end
 })
 
@@ -220,32 +284,129 @@ local lightsLabel = AssetsBox:AddLabel('💡 Lights: 0')
 AssetsBox:AddDivider()
 
 AssetsBox:AddButton({
-    Text = '📋 Export Asset IDs',
+    Text = '📋 Copy All Sounds',
     Func = function()
-        local assetData = "=== GF GAME SCANNER - ASSETS ===\n\n"
-        
-        assetData = assetData .. "SOUNDS (" .. #scanResults.Sounds .. "):\n"
+        local data = "=== SOUNDS (" .. #scanResults.Sounds .. ") ===\n\n"
         for _, sound in pairs(scanResults.Sounds) do
-            assetData = assetData .. "- " .. sound.Name .. " | ID: " .. sound.SoundId .. "\n"
+            data = data .. "Name: " .. sound.Name .. "\n"
+            data = data .. "SoundId: " .. sound.SoundId .. "\n"
+            data = data .. "Path: " .. sound.Path .. "\n"
+            data = data .. "---\n"
         end
-        
-        assetData = assetData .. "\nANIMATIONS (" .. #scanResults.Animations .. "):\n"
+        setclipboard(data)
+        Library:Notify('Sounds copied! (' .. #scanResults.Sounds .. ')', 2)
+    end
+})
+
+AssetsBox:AddButton({
+    Text = '📋 Copy All Animations',
+    Func = function()
+        local data = "=== ANIMATIONS (" .. #scanResults.Animations .. ") ===\n\n"
         for _, anim in pairs(scanResults.Animations) do
-            assetData = assetData .. "- " .. anim.Name .. " | ID: " .. anim.AnimationId .. "\n"
+            data = data .. "Name: " .. anim.Name .. "\n"
+            data = data .. "AnimationId: " .. anim.AnimationId .. "\n"
+            data = data .. "Path: " .. anim.Path .. "\n"
+            data = data .. "---\n"
         end
-        
-        assetData = assetData .. "\nMESHES (" .. #scanResults.MeshParts .. "):\n"
+        setclipboard(data)
+        Library:Notify('Animations copied! (' .. #scanResults.Animations .. ')', 2)
+    end
+})
+
+AssetsBox:AddButton({
+    Text = '📋 Copy All Meshes',
+    Func = function()
+        local data = "=== MESHES (" .. #scanResults.MeshParts .. ") ===\n\n"
         for _, mesh in pairs(scanResults.MeshParts) do
-            assetData = assetData .. "- " .. mesh.Name .. " | ID: " .. mesh.MeshId .. "\n"
+            data = data .. "Name: " .. mesh.Name .. "\n"
+            data = data .. "MeshId: " .. mesh.MeshId .. "\n"
+            data = data .. "Path: " .. mesh.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('Meshes copied! (' .. #scanResults.MeshParts .. ')', 2)
+    end
+})
+
+AssetsBox:AddButton({
+    Text = '📋 Copy All Textures',
+    Func = function()
+        local data = "=== TEXTURES (" .. #scanResults.Textures .. ") ===\n\n"
+        for _, tex in pairs(scanResults.Textures) do
+            data = data .. "Name: " .. tex.Name .. "\n"
+            data = data .. "Texture: " .. tex.Texture .. "\n"
+            data = data .. "Path: " .. tex.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('Textures copied! (' .. #scanResults.Textures .. ')', 2)
+    end
+})
+
+AssetsBox:AddButton({
+    Text = '📋 Copy ALL Assets',
+    Func = function()
+        local data = "=== ALL ASSETS ===\n\n"
+        
+        data = data .. "SOUNDS (" .. #scanResults.Sounds .. "):\n"
+        for _, sound in pairs(scanResults.Sounds) do
+            data = data .. "• " .. sound.Name .. " | " .. sound.SoundId .. "\n"
         end
         
-        setclipboard(assetData)
-        Library:Notify('Asset data copied!', 2)
+        data = data .. "\nANIMATIONS (" .. #scanResults.Animations .. "):\n"
+        for _, anim in pairs(scanResults.Animations) do
+            data = data .. "• " .. anim.Name .. " | " .. anim.AnimationId .. "\n"
+        end
+        
+        data = data .. "\nMESHES (" .. #scanResults.MeshParts .. "):\n"
+        for _, mesh in pairs(scanResults.MeshParts) do
+            data = data .. "• " .. mesh.Name .. " | " .. mesh.MeshId .. "\n"
+        end
+        
+        data = data .. "\nTEXTURES (" .. #scanResults.Textures .. "):\n"
+        for _, tex in pairs(scanResults.Textures) do
+            data = data .. "• " .. tex.Name .. " | " .. tex.Texture .. "\n"
+        end
+        
+        data = data .. "\nPARTICLES: " .. #scanResults.ParticleEmitters .. "\n"
+        data = data .. "LIGHTS: " .. #scanResults.Lights .. "\n"
+        
+        setclipboard(data)
+        Library:Notify('All Assets copied!', 2)
     end
 })
 
 local ToolsBox = Tabs.Assets:AddRightGroupbox('Tools & Items')
 local toolsList = ToolsBox:AddLabel('No tools found')
+
+ToolsBox:AddButton({
+    Text = '📋 Copy All Tools',
+    Func = function()
+        local data = "=== TOOLS (" .. #scanResults.Tools .. ") ===\n\n"
+        for _, tool in pairs(scanResults.Tools) do
+            data = data .. "Name: " .. tool.Name .. "\n"
+            data = data .. "Path: " .. tool.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('Tools copied! (' .. #scanResults.Tools .. ')', 2)
+    end
+})
+
+ToolsBox:AddButton({
+    Text = '📋 Copy All GUIs',
+    Func = function()
+        local data = "=== GUIS (" .. #scanResults.GUIs .. ") ===\n\n"
+        for _, gui in pairs(scanResults.GUIs) do
+            data = data .. "Name: " .. gui.Name .. "\n"
+            data = data .. "Type: " .. gui.Type .. "\n"
+            data = data .. "Path: " .. gui.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('GUIs copied! (' .. #scanResults.GUIs .. ')', 2)
+    end
+})
 
 -- ═══════════════════════════════════════
 -- 🛡️ SECURITY TAB
@@ -255,9 +416,38 @@ local SecurityBox = Tabs.Security:AddLeftGroupbox('Security Analysis')
 local antiCheatLabel = SecurityBox:AddLabel('Anti-Cheat: Not detected')
 local suspiciousLabel = SecurityBox:AddLabel('Suspicious Objects: 0')
 
-SecurityBox:AddDivider()
+SecurityBox:AddButton({
+    Text = '📋 Copy Anti-Cheat Info',
+    Func = function()
+        local data = "=== ANTI-CHEAT DETECTION ===\n\n"
+        if #scanResults.AntiCheats > 0 then
+            data = data .. "⚠️ DETECTED: " .. #scanResults.AntiCheats .. " instances\n\n"
+            for _, ac in pairs(scanResults.AntiCheats) do
+                data = data .. "Type: " .. ac.Type .. "\n"
+                data = data .. "Name: " .. ac.Name .. "\n"
+                data = data .. "Path: " .. ac.Path .. "\n"
+                data = data .. "---\n"
+            end
+        else
+            data = data .. "✅ No obvious anti-cheat detected\n"
+        end
+        setclipboard(data)
+        Library:Notify('Anti-cheat info copied!', 2)
+    end
+})
 
-local securityList = SecurityBox:AddLabel('Security findings will appear here...')
+SecurityBox:AddButton({
+    Text = '📋 Copy Suspicious Objects',
+    Func = function()
+        local data = "=== SUSPICIOUS OBJECTS (" .. scanStats.suspiciousObjects .. ") ===\n\n"
+        for _, ac in pairs(scanResults.AntiCheats) do
+            data = data .. "• [" .. ac.Type .. "] " .. ac.Name .. "\n"
+            data = data .. "  Path: " .. ac.Path .. "\n"
+        end
+        setclipboard(data)
+        Library:Notify('Suspicious objects copied!', 2)
+    end
+})
 
 local TipsBox = Tabs.Security:AddRightGroupbox('Security Tips')
 TipsBox:AddLabel('Common Anti-Cheat Names:')
@@ -287,6 +477,112 @@ StatsBox:AddButton({
     Text = '📄 Export Full Report',
     Func = function()
         exportFullReport()
+    end
+})
+
+StatsBox:AddButton({
+    Text = '📋 Copy Important Objects',
+    Func = function()
+        local data = "=== IMPORTANT OBJECTS (" .. #scanResults.Important .. ") ===\n\n"
+        for _, obj in pairs(scanResults.Important) do
+            data = data .. "Type: " .. obj.Type .. "\n"
+            data = data .. "Name: " .. obj.Name .. "\n"
+            data = data .. "Path: " .. obj.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('Important objects copied! (' .. #scanResults.Important .. ')', 2)
+    end
+})
+
+StatsBox:AddButton({
+    Text = '📋 Copy Value Objects',
+    Func = function()
+        local data = "=== VALUE OBJECTS (" .. #scanResults.ValueObjects .. ") ===\n\n"
+        for _, val in pairs(scanResults.ValueObjects) do
+            data = data .. "Type: " .. val.Type .. "\n"
+            data = data .. "Name: " .. val.Name .. "\n"
+            data = data .. "Path: " .. val.Path .. "\n"
+            data = data .. "---\n"
+        end
+        setclipboard(data)
+        Library:Notify('Value objects copied! (' .. #scanResults.ValueObjects .. ')', 2)
+    end
+})
+
+StatsBox:AddButton({
+    Text = '📋 Copy EVERYTHING',
+    Func = function()
+        local data = "═══════════════════════════════════════\n"
+        data = data .. "🔍 GF GAME SCANNER - COMPLETE DATA\n"
+        data = data .. "═══════════════════════════════════════\n\n"
+        
+        -- Scripts
+        data = data .. "━━━ LOCAL SCRIPTS (" .. #scanResults.LocalScripts .. ") ━━━\n"
+        for _, script in pairs(scanResults.LocalScripts) do
+            data = data .. "• " .. script.Name .. " -> " .. script.Path .. "\n"
+        end
+        
+        data = data .. "\n━━━ SERVER SCRIPTS (" .. #scanResults.Scripts .. ") ━━━\n"
+        for _, script in pairs(scanResults.Scripts) do
+            data = data .. "• " .. script.Name .. " -> " .. script.Path .. "\n"
+        end
+        
+        data = data .. "\n━━━ MODULE SCRIPTS (" .. #scanResults.ModuleScripts .. ") ━━━\n"
+        for _, script in pairs(scanResults.ModuleScripts) do
+            data = data .. "• " .. script.Name .. " -> " .. script.Path .. "\n"
+        end
+        
+        -- Remotes
+        data = data .. "\n━━━ REMOTE EVENTS (" .. #scanResults.RemoteEvents .. ") ━━━\n"
+        for _, remote in pairs(scanResults.RemoteEvents) do
+            data = data .. "• " .. remote.Name .. " -> " .. remote.Path .. "\n"
+        end
+        
+        data = data .. "\n━━━ REMOTE FUNCTIONS (" .. #scanResults.RemoteFunctions .. ") ━━━\n"
+        for _, remote in pairs(scanResults.RemoteFunctions) do
+            data = data .. "• " .. remote.Name .. " -> " .. remote.Path .. "\n"
+        end
+        
+        -- Assets
+        data = data .. "\n━━━ SOUNDS (" .. #scanResults.Sounds .. ") ━━━\n"
+        for _, sound in pairs(scanResults.Sounds) do
+            data = data .. "• " .. sound.Name .. " | " .. sound.SoundId .. "\n"
+        end
+        
+        data = data .. "\n━━━ ANIMATIONS (" .. #scanResults.Animations .. ") ━━━\n"
+        for _, anim in pairs(scanResults.Animations) do
+            data = data .. "• " .. anim.Name .. " | " .. anim.AnimationId .. "\n"
+        end
+        
+        data = data .. "\n━━━ MESHES (" .. #scanResults.MeshParts .. ") ━━━\n"
+        for _, mesh in pairs(scanResults.MeshParts) do
+            data = data .. "• " .. mesh.Name .. " | " .. mesh.MeshId .. "\n"
+        end
+        
+        data = data .. "\n━━━ TOOLS (" .. #scanResults.Tools .. ") ━━━\n"
+        for _, tool in pairs(scanResults.Tools) do
+            data = data .. "• " .. tool.Name .. " -> " .. tool.Path .. "\n"
+        end
+        
+        -- Security
+        data = data .. "\n━━━ SECURITY ━━━\n"
+        if #scanResults.AntiCheats > 0 then
+            data = data .. "⚠️ ANTI-CHEAT DETECTED:\n"
+            for _, ac in pairs(scanResults.AntiCheats) do
+                data = data .. "• " .. ac.Name .. " (" .. ac.Type .. ")\n"
+            end
+        else
+            data = data .. "✅ No anti-cheat detected\n"
+        end
+        
+        data = data .. "\n═══════════════════════════════════════\n"
+        data = data .. "Total Objects: " .. scanStats.scannedObjects .. "\n"
+        data = data .. "Created by: Gael Fonzar\n"
+        data = data .. "═══════════════════════════════════════"
+        
+        setclipboard(data)
+        Library:Notify('EVERYTHING copied to clipboard!', 4)
     end
 })
 

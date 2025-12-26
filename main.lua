@@ -1,1138 +1,697 @@
 --[[
     ═══════════════════════════════════════
-    🦁 CATCH & TAME HUB v3.0 - FIXED ESP
+    🔍 GF GAME SCANNER
     ═══════════════════════════════════════
     Created by: Gael Fonzar
-    RAREZA REAL DETECTADA + CHRISTMAS ESP
+    Detects: Scripts, RemoteEvents, Assets, 
+    Security, Important Objects & More
     ═══════════════════════════════════════
 ]]
 
--- Load Fluent Library
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- Load Linoria Library
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local StarterGui = game:GetService("StarterGui")
+local StarterPlayer = game:GetService("StarterPlayer")
 
 local player = Players.LocalPlayer
 
--- Remotes
-local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
-local KnitServices = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services
+-- Scan Results
+local scanResults = {
+    LocalScripts = {},
+    Scripts = {},
+    ModuleScripts = {},
+    RemoteEvents = {},
+    RemoteFunctions = {},
+    BindableEvents = {},
+    BindableFunctions = {},
+    ValueObjects = {},
+    Tools = {},
+    Animations = {},
+    Sounds = {},
+    Decals = {},
+    Textures = {},
+    MeshParts = {},
+    SpecialMeshes = {},
+    ParticleEmitters = {},
+    Lights = {},
+    GUIs = {},
+    AntiCheats = {},
+    Important = {}
+}
 
--- Variables
-local instaCatchEnabled = false
-local autoTPEnabled = false
-local espEnabled = false
-local christmasESPEnabled = false
-local espRarity = "All"
-local speedBoostEnabled = false
-local autoCollectCash = false
-local autoBreed = false
-local autoFeedPets = false
+local scanStats = {
+    totalObjects = 0,
+    scannedObjects = 0,
+    suspiciousObjects = 0
+}
 
-local walkSpeed = 16
-local connections = {}
-local espObjects = {}
-local christmasESPObjects = {}
-local catchingPet = false
+-- Create Window
+local Window = Library:CreateWindow({
+    Title = '🔍 GF Game Scanner',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
 
--- Rareza Colors
-local rarityColors = {
-    ["Legendary"] = Color3.fromRGB(255, 215, 0), -- Gold
-    ["Mythic"] = Color3.fromRGB(255, 0, 255), -- Magenta
-    ["Epic"] = Color3.fromRGB(138, 43, 226), -- Purple
-    ["Rare"] = Color3.fromRGB(0, 112, 255), -- Blue
-    ["Uncommon"] = Color3.fromRGB(0, 255, 0), -- Green
-    ["Common"] = Color3.fromRGB(255, 255, 255), -- White
-    ["Christmas"] = Color3.fromRGB(255, 0, 0) -- Red
+local Tabs = {
+    Scanner = Window:AddTab('🔍 Scanner'),
+    Scripts = Window:AddTab('📜 Scripts'),
+    Remotes = Window:AddTab('📡 Remotes'),
+    Assets = Window:AddTab('🎨 Assets'),
+    Security = Window:AddTab('🛡️ Security'),
+    Results = Window:AddTab('📊 Results')
 }
 
 -- ═══════════════════════════════════════
--- 🔍 DETECTAR RAREZA REAL
+-- 🔍 SCANNER TAB
+-- ═══════════════════════════════════════
+local ScanBox = Tabs.Scanner:AddLeftGroupbox('Quick Scan')
+
+local scanProgress = ScanBox:AddLabel('Ready to scan...')
+local scanStatus = ScanBox:AddLabel('Status: Idle')
+
+ScanBox:AddButton({
+    Text = '🔍 START FULL SCAN',
+    Func = function()
+        Library:Notify('Starting full game scan...', 3)
+        scanProgress:SetText('Scanning: 0%')
+        scanStatus:SetText('Status: Scanning...')
+        
+        -- Reset results
+        for k, v in pairs(scanResults) do
+            if type(v) == "table" then
+                scanResults[k] = {}
+            end
+        end
+        scanStats.totalObjects = 0
+        scanStats.scannedObjects = 0
+        scanStats.suspiciousObjects = 0
+        
+        task.spawn(function()
+            performFullScan()
+            scanProgress:SetText('Scan Complete!')
+            scanStatus:SetText('Status: Complete ✅')
+            Library:Notify('Scan completed! Check results.', 4)
+        end)
+    end
+})
+
+ScanBox:AddDivider()
+
+local QuickActions = ScanBox:AddLabel('Quick Actions:')
+
+ScanBox:AddButton({
+    Text = '📜 Scan Scripts Only',
+    Func = function()
+        Library:Notify('Scanning scripts...', 2)
+        scanScriptsOnly()
+    end
+})
+
+ScanBox:AddButton({
+    Text = '📡 Scan Remotes Only',
+    Func = function()
+        Library:Notify('Scanning remotes...', 2)
+        scanRemotesOnly()
+    end
+})
+
+ScanBox:AddButton({
+    Text = '🛡️ Detect Anti-Cheat',
+    Func = function()
+        Library:Notify('Detecting anti-cheat...', 2)
+        detectAntiCheat()
+    end
+})
+
+local InfoBox = Tabs.Scanner:AddRightGroupbox('Scan Information')
+
+InfoBox:AddLabel('What this scanner detects:')
+InfoBox:AddDivider()
+InfoBox:AddLabel('📜 All Scripts (Local/Server/Module)')
+InfoBox:AddLabel('📡 Remote Events & Functions')
+InfoBox:AddLabel('🎨 Assets (Meshes, Textures, Sounds)')
+InfoBox:AddLabel('🛡️ Anti-Cheat Systems')
+InfoBox:AddLabel('💎 Rare/Important Objects')
+InfoBox:AddLabel('🎮 Tools & Animations')
+InfoBox:AddLabel('💡 Lights & Particles')
+InfoBox:AddLabel('🖼️ GUIs & Decals')
+
+-- ═══════════════════════════════════════
+-- 📜 SCRIPTS TAB
+-- ═══════════════════════════════════════
+local ScriptsBox = Tabs.Scripts:AddLeftGroupbox('Script Results')
+
+local scriptsList = ScriptsBox:AddLabel('No scripts scanned yet')
+local scriptsCount = ScriptsBox:AddLabel('Total: 0')
+
+ScriptsBox:AddDivider()
+
+ScriptsBox:AddButton({
+    Text = '📋 Copy All Script Paths',
+    Func = function()
+        local paths = ""
+        for _, script in pairs(scanResults.LocalScripts) do
+            paths = paths .. script.Path .. "\n"
+        end
+        for _, script in pairs(scanResults.Scripts) do
+            paths = paths .. script.Path .. "\n"
+        end
+        for _, script in pairs(scanResults.ModuleScripts) do
+            paths = paths .. script.Path .. "\n"
+        end
+        setclipboard(paths)
+        Library:Notify('Script paths copied!', 2)
+    end
+})
+
+local ModulesBox = Tabs.Scripts:AddRightGroupbox('Module Scripts')
+local modulesList = ModulesBox:AddLabel('No modules found')
+
+-- ═══════════════════════════════════════
+-- 📡 REMOTES TAB
+-- ═══════════════════════════════════════
+local RemotesBox = Tabs.Remotes:AddLeftGroupbox('Remote Events')
+
+local remotesList = RemotesBox:AddLabel('No remotes scanned yet')
+local remotesCount = RemotesBox:AddLabel('Total: 0')
+
+RemotesBox:AddDivider()
+
+RemotesBox:AddButton({
+    Text = '📋 Copy Remote Paths',
+    Func = function()
+        local paths = ""
+        for _, remote in pairs(scanResults.RemoteEvents) do
+            paths = paths .. remote.Path .. "\n"
+        end
+        for _, remote in pairs(scanResults.RemoteFunctions) do
+            paths = paths .. remote.Path .. "\n"
+        end
+        setclipboard(paths)
+        Library:Notify('Remote paths copied!', 2)
+    end
+})
+
+local FunctionsBox = Tabs.Remotes:AddRightGroupbox('Remote Functions')
+local functionsList = FunctionsBox:AddLabel('No functions found')
+
+-- ═══════════════════════════════════════
+-- 🎨 ASSETS TAB
+-- ═══════════════════════════════════════
+local AssetsBox = Tabs.Assets:AddLeftGroupbox('Asset Summary')
+
+local soundsLabel = AssetsBox:AddLabel('🔊 Sounds: 0')
+local meshesLabel = AssetsBox:AddLabel('🗿 Meshes: 0')
+local texturesLabel = AssetsBox:AddLabel('🖼️ Textures: 0')
+local animationsLabel = AssetsBox:AddLabel('🎬 Animations: 0')
+local particlesLabel = AssetsBox:AddLabel('✨ Particles: 0')
+local lightsLabel = AssetsBox:AddLabel('💡 Lights: 0')
+
+AssetsBox:AddDivider()
+
+AssetsBox:AddButton({
+    Text = '📋 Export Asset IDs',
+    Func = function()
+        local assetData = "=== GF GAME SCANNER - ASSETS ===\n\n"
+        
+        assetData = assetData .. "SOUNDS (" .. #scanResults.Sounds .. "):\n"
+        for _, sound in pairs(scanResults.Sounds) do
+            assetData = assetData .. "- " .. sound.Name .. " | ID: " .. sound.SoundId .. "\n"
+        end
+        
+        assetData = assetData .. "\nANIMATIONS (" .. #scanResults.Animations .. "):\n"
+        for _, anim in pairs(scanResults.Animations) do
+            assetData = assetData .. "- " .. anim.Name .. " | ID: " .. anim.AnimationId .. "\n"
+        end
+        
+        assetData = assetData .. "\nMESHES (" .. #scanResults.MeshParts .. "):\n"
+        for _, mesh in pairs(scanResults.MeshParts) do
+            assetData = assetData .. "- " .. mesh.Name .. " | ID: " .. mesh.MeshId .. "\n"
+        end
+        
+        setclipboard(assetData)
+        Library:Notify('Asset data copied!', 2)
+    end
+})
+
+local ToolsBox = Tabs.Assets:AddRightGroupbox('Tools & Items')
+local toolsList = ToolsBox:AddLabel('No tools found')
+
+-- ═══════════════════════════════════════
+-- 🛡️ SECURITY TAB
+-- ═══════════════════════════════════════
+local SecurityBox = Tabs.Security:AddLeftGroupbox('Security Analysis')
+
+local antiCheatLabel = SecurityBox:AddLabel('Anti-Cheat: Not detected')
+local suspiciousLabel = SecurityBox:AddLabel('Suspicious Objects: 0')
+
+SecurityBox:AddDivider()
+
+local securityList = SecurityBox:AddLabel('Security findings will appear here...')
+
+local TipsBox = Tabs.Security:AddRightGroupbox('Security Tips')
+TipsBox:AddLabel('Common Anti-Cheat Names:')
+TipsBox:AddLabel('• AntiCheat, AC, Security')
+TipsBox:AddLabel('• Detect, Monitor, Check')
+TipsBox:AddLabel('• Anti, Ban, Kick')
+TipsBox:AddDivider()
+TipsBox:AddLabel('Suspicious Patterns:')
+TipsBox:AddLabel('• Scripts checking speed/position')
+TipsBox:AddLabel('• Remote spam detection')
+TipsBox:AddLabel('• Hidden/obfuscated code')
+
+-- ═══════════════════════════════════════
+-- 📊 RESULTS TAB
+-- ═══════════════════════════════════════
+local StatsBox = Tabs.Results:AddLeftGroupbox('Scan Statistics')
+
+local totalObjectsLabel = StatsBox:AddLabel('Total Objects: 0')
+local scriptsFoundLabel = StatsBox:AddLabel('Scripts Found: 0')
+local remotesFoundLabel = StatsBox:AddLabel('Remotes Found: 0')
+local assetsFoundLabel = StatsBox:AddLabel('Assets Found: 0')
+local importantLabel = StatsBox:AddLabel('Important: 0')
+
+StatsBox:AddDivider()
+
+StatsBox:AddButton({
+    Text = '📄 Export Full Report',
+    Func = function()
+        exportFullReport()
+    end
+})
+
+local ImportantBox = Tabs.Results:AddRightGroupbox('Important Findings')
+local importantList = ImportantBox:AddLabel('Important objects will be listed here')
+
+-- ═══════════════════════════════════════
+-- 🔍 SCANNING FUNCTIONS
 -- ═══════════════════════════════════════
 
-local function getPetRarityReal(petModel)
-    -- Método 1: Buscar en StringValue o IntValue
-    for _, child in pairs(petModel:GetDescendants()) do
-        if child:IsA("StringValue") and (child.Name == "Rarity" or child.Name == "rarity" or child.Name == "Tier") then
-            return child.Value
+local function getPath(obj)
+    local path = obj.Name
+    local current = obj.Parent
+    while current and current ~= game do
+        path = current.Name .. "." .. path
+        current = current.Parent
+    end
+    return path
+end
+
+local function isAntiCheatName(name)
+    local keywords = {
+        "anticheat", "anti", "cheat", "detect", "ban", "kick", "monitor",
+        "security", "check", "exploit", "hack", "guard", "protect", "ac"
+    }
+    local lowerName = name:lower()
+    for _, keyword in pairs(keywords) do
+        if lowerName:find(keyword) then
+            return true
         end
-        if child:IsA("IntValue") and (child.Name == "Rarity" or child.Name == "RarityTier") then
-            local tierMap = {
-                [1] = "Common",
-                [2] = "Uncommon", 
-                [3] = "Rare",
-                [4] = "Epic",
-                [5] = "Mythic",
-                [6] = "Legendary"
-            }
-            return tierMap[child.Value] or "Common"
+    end
+    return false
+end
+
+local function scanObject(obj)
+    scanStats.scannedObjects = scanStats.scannedObjects + 1
+    
+    -- Update progress
+    local progress = math.floor((scanStats.scannedObjects / scanStats.totalObjects) * 100)
+    scanProgress:SetText('Scanning: ' .. progress .. '%')
+    
+    -- Scan based on object type
+    if obj:IsA("LocalScript") then
+        table.insert(scanResults.LocalScripts, {
+            Name = obj.Name,
+            Path = getPath(obj),
+            Parent = obj.Parent.Name,
+            Disabled = obj.Disabled
+        })
+        if isAntiCheatName(obj.Name) then
+            table.insert(scanResults.AntiCheats, {Type = "LocalScript", Name = obj.Name, Path = getPath(obj)})
+            scanStats.suspiciousObjects = scanStats.suspiciousObjects + 1
+        end
+        
+    elseif obj:IsA("Script") then
+        table.insert(scanResults.Scripts, {
+            Name = obj.Name,
+            Path = getPath(obj),
+            Parent = obj.Parent.Name,
+            Disabled = obj.Disabled
+        })
+        if isAntiCheatName(obj.Name) then
+            table.insert(scanResults.AntiCheats, {Type = "Script", Name = obj.Name, Path = getPath(obj)})
+            scanStats.suspiciousObjects = scanStats.suspiciousObjects + 1
+        end
+        
+    elseif obj:IsA("ModuleScript") then
+        table.insert(scanResults.ModuleScripts, {
+            Name = obj.Name,
+            Path = getPath(obj),
+            Parent = obj.Parent.Name
+        })
+        if isAntiCheatName(obj.Name) then
+            table.insert(scanResults.AntiCheats, {Type = "ModuleScript", Name = obj.Name, Path = getPath(obj)})
+            scanStats.suspiciousObjects = scanStats.suspiciousObjects + 1
+        end
+        
+    elseif obj:IsA("RemoteEvent") then
+        table.insert(scanResults.RemoteEvents, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        table.insert(scanResults.Important, {Type = "RemoteEvent", Name = obj.Name, Path = getPath(obj)})
+        
+    elseif obj:IsA("RemoteFunction") then
+        table.insert(scanResults.RemoteFunctions, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        table.insert(scanResults.Important, {Type = "RemoteFunction", Name = obj.Name, Path = getPath(obj)})
+        
+    elseif obj:IsA("BindableEvent") then
+        table.insert(scanResults.BindableEvents, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("BindableFunction") then
+        table.insert(scanResults.BindableFunctions, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("Tool") then
+        table.insert(scanResults.Tools, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        table.insert(scanResults.Important, {Type = "Tool", Name = obj.Name, Path = getPath(obj)})
+        
+    elseif obj:IsA("Sound") then
+        table.insert(scanResults.Sounds, {
+            Name = obj.Name,
+            SoundId = obj.SoundId,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("Animation") then
+        table.insert(scanResults.Animations, {
+            Name = obj.Name,
+            AnimationId = obj.AnimationId,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("MeshPart") then
+        table.insert(scanResults.MeshParts, {
+            Name = obj.Name,
+            MeshId = obj.MeshId,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("SpecialMesh") then
+        table.insert(scanResults.SpecialMeshes, {
+            Name = obj.Name,
+            MeshId = obj.MeshId,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("Decal") then
+        table.insert(scanResults.Decals, {
+            Name = obj.Name,
+            Texture = obj.Texture,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("Texture") then
+        table.insert(scanResults.Textures, {
+            Name = obj.Name,
+            Texture = obj.Texture,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("ParticleEmitter") then
+        table.insert(scanResults.ParticleEmitters, {
+            Name = obj.Name,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("Light") then
+        table.insert(scanResults.Lights, {
+            Name = obj.Name,
+            Type = obj.ClassName,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+        table.insert(scanResults.GUIs, {
+            Name = obj.Name,
+            Type = obj.ClassName,
+            Path = getPath(obj)
+        })
+        
+    elseif obj:IsA("ValueBase") then
+        table.insert(scanResults.ValueObjects, {
+            Name = obj.Name,
+            Type = obj.ClassName,
+            Path = getPath(obj)
+        })
+    end
+end
+
+local function countAllObjects(parent)
+    local count = 0
+    for _, obj in pairs(parent:GetDescendants()) do
+        count = count + 1
+    end
+    return count
+end
+
+function performFullScan()
+    -- Count total objects
+    scanStats.totalObjects = 
+        countAllObjects(Workspace) +
+        countAllObjects(ReplicatedStorage) +
+        countAllObjects(Lighting) +
+        countAllObjects(StarterGui) +
+        countAllObjects(StarterPlayer) +
+        countAllObjects(player.PlayerGui) +
+        countAllObjects(player.Character or Instance.new("Folder"))
+    
+    -- Scan all locations
+    local locations = {
+        Workspace,
+        ReplicatedStorage,
+        Lighting,
+        StarterGui,
+        StarterPlayer,
+        player.PlayerGui
+    }
+    
+    if player.Character then
+        table.insert(locations, player.Character)
+    end
+    
+    for _, location in pairs(locations) do
+        for _, obj in pairs(location:GetDescendants()) do
+            scanObject(obj)
         end
     end
     
-    -- Método 2: Buscar en Configuration
-    local config = petModel:FindFirstChild("Configuration") or petModel:FindFirstChild("Config")
-    if config then
-        for _, child in pairs(config:GetChildren()) do
-            if child.Name:lower():find("rarity") or child.Name:lower():find("tier") then
-                if child:IsA("StringValue") then
-                    return child.Value
-                elseif child:IsA("IntValue") then
-                    local tierMap = {[1] = "Common", [2] = "Uncommon", [3] = "Rare", [4] = "Epic", [5] = "Mythic", [6] = "Legendary"}
-                    return tierMap[child.Value] or "Common"
-                end
+    -- Update UI with results
+    updateResultsUI()
+end
+
+function scanScriptsOnly()
+    for _, location in pairs({Workspace, ReplicatedStorage, StarterGui, StarterPlayer, player.PlayerGui}) do
+        for _, obj in pairs(location:GetDescendants()) do
+            if obj:IsA("LocalScript") or obj:IsA("Script") or obj:IsA("ModuleScript") then
+                scanObject(obj)
             end
         end
     end
-    
-    -- Método 3: Pedir al servidor
-    local success, result = pcall(function()
-        return Remotes.getPetRev:InvokeServer(petModel.Name)
-    end)
-    
-    if success and result and result.Rarity then
-        return result.Rarity
-    end
-    
-    -- Método 4: Buscar en el nombre
-    local name = petModel.Name:lower()
-    if name:find("legendary") or name:find("legend") then return "Legendary" end
-    if name:find("mythic") or name:find("myth") then return "Mythic" end
-    if name:find("epic") then return "Epic" end
-    if name:find("rare") then return "Rare" end
-    if name:find("uncommon") then return "Uncommon" end
-    if name:find("christmas") or name:find("xmas") or name:find("festive") or name:find("holiday") then return "Christmas" end
-    
-    return "Common"
+    updateResultsUI()
 end
 
-local function getRoamingPets()
-    local pets = {}
-    local roamingFolder = Workspace:FindFirstChild("RoamingPets")
-    
-    if roamingFolder then
-        local petsFolder = roamingFolder:FindFirstChild("Pets")
-        if petsFolder then
-            for _, pet in pairs(petsFolder:GetChildren()) do
-                if pet:IsA("Model") and pet:FindFirstChild("HumanoidRootPart") then
-                    local rarity = getPetRarityReal(pet)
-                    table.insert(pets, {
-                        model = pet,
-                        name = pet.Name,
-                        rarity = rarity,
-                        position = pet.HumanoidRootPart.Position
+function scanRemotesOnly()
+    for _, location in pairs({ReplicatedStorage, Workspace}) do
+        for _, obj in pairs(location:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                scanObject(obj)
+            end
+        end
+    end
+    updateResultsUI()
+end
+
+function detectAntiCheat()
+    scanResults.AntiCheats = {}
+    for _, location in pairs({Workspace, ReplicatedStorage, StarterPlayer}) do
+        for _, obj in pairs(location:GetDescendants()) do
+            if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+                if isAntiCheatName(obj.Name) then
+                    table.insert(scanResults.AntiCheats, {
+                        Type = obj.ClassName,
+                        Name = obj.Name,
+                        Path = getPath(obj)
                     })
                 end
             end
         end
     end
     
-    return pets
-end
-
-local function getChristmasPets()
-    local xmasPets = {}
-    
-    -- Buscar en Workspace
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name:find("XMas") or obj.Name:find("Christmas") or obj.Name:find("Festive") then
-            if obj:FindFirstChild("HumanoidRootPart") then
-                table.insert(xmasPets, {
-                    model = obj,
-                    name = obj.Name,
-                    position = obj.HumanoidRootPart.Position
-                })
-            end
+    if #scanResults.AntiCheats > 0 then
+        antiCheatLabel:SetText('⚠️ Anti-Cheat DETECTED: ' .. #scanResults.AntiCheats .. ' instances')
+        local acList = "Detected:\n"
+        for _, ac in pairs(scanResults.AntiCheats) do
+            acList = acList .. "• " .. ac.Name .. " (" .. ac.Type .. ")\n"
         end
+        securityList:SetText(acList)
+        Library:Notify('⚠️ Anti-cheat detected!', 4)
+    else
+        antiCheatLabel:SetText('✅ No Anti-Cheat detected')
+        securityList:SetText('No obvious anti-cheat found')
+        Library:Notify('No anti-cheat detected', 3)
     end
-    
-    return xmasPets
 end
 
-local function getClosestPet(rarityFilter)
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+function updateResultsUI()
+    -- Scripts Tab
+    local scriptCount = #scanResults.LocalScripts + #scanResults.Scripts
+    scriptsCount:SetText('Total Scripts: ' .. scriptCount)
     
-    local myPos = char.HumanoidRootPart.Position
-    local closestPet = nil
-    local closestDist = math.huge
+    local scriptText = "LocalScripts: " .. #scanResults.LocalScripts .. "\n"
+    scriptText = scriptText .. "Server Scripts: " .. #scanResults.Scripts .. "\n"
+    scriptText = scriptText .. "\nRecent LocalScripts:\n"
+    for i = 1, math.min(10, #scanResults.LocalScripts) do
+        scriptText = scriptText .. "• " .. scanResults.LocalScripts[i].Name .. "\n"
+    end
+    scriptsList:SetText(scriptText)
     
-    for _, petData in pairs(getRoamingPets()) do
-        if rarityFilter == "All" or petData.rarity == rarityFilter then
-            local dist = (myPos - petData.position).Magnitude
-            if dist < closestDist then
-                closestDist = dist
-                closestPet = petData
-            end
+    modulesList:SetText("Module Scripts: " .. #scanResults.ModuleScripts)
+    
+    -- Remotes Tab
+    remotesCount:SetText('Total Remotes: ' .. (#scanResults.RemoteEvents + #scanResults.RemoteFunctions))
+    
+    local remoteText = "RemoteEvents:\n"
+    for i = 1, math.min(15, #scanResults.RemoteEvents) do
+        remoteText = remoteText .. "• " .. scanResults.RemoteEvents[i].Name .. "\n"
+    end
+    remotesList:SetText(remoteText)
+    
+    local funcText = "RemoteFunctions:\n"
+    for i = 1, math.min(10, #scanResults.RemoteFunctions) do
+        funcText = funcText .. "• " .. scanResults.RemoteFunctions[i].Name .. "\n"
+    end
+    functionsList:SetText(funcText)
+    
+    -- Assets Tab
+    soundsLabel:SetText('🔊 Sounds: ' .. #scanResults.Sounds)
+    meshesLabel:SetText('🗿 Meshes: ' .. #scanResults.MeshParts)
+    texturesLabel:SetText('🖼️ Textures: ' .. #scanResults.Textures)
+    animationsLabel:SetText('🎬 Animations: ' .. #scanResults.Animations)
+    particlesLabel:SetText('✨ Particles: ' .. #scanResults.ParticleEmitters)
+    lightsLabel:SetText('💡 Lights: ' .. #scanResults.Lights)
+    
+    local toolText = "Tools Found: " .. #scanResults.Tools .. "\n"
+    for i = 1, math.min(10, #scanResults.Tools) do
+        toolText = toolText .. "• " .. scanResults.Tools[i].Name .. "\n"
+    end
+    toolsList:SetText(toolText)
+    
+    -- Security Tab
+    suspiciousLabel:SetText('Suspicious Objects: ' .. scanStats.suspiciousObjects)
+    
+    -- Results Tab
+    totalObjectsLabel:SetText('Total Objects Scanned: ' .. scanStats.scannedObjects)
+    scriptsFoundLabel:SetText('Scripts Found: ' .. scriptCount)
+    remotesFoundLabel:SetText('Remotes Found: ' .. (#scanResults.RemoteEvents + #scanResults.RemoteFunctions))
+    assetsFoundLabel:SetText('Assets Found: ' .. (#scanResults.Sounds + #scanResults.Animations + #scanResults.MeshParts))
+    importantLabel:SetText('Important Objects: ' .. #scanResults.Important)
+    
+    local impText = "Important Findings:\n"
+    for i = 1, math.min(15, #scanResults.Important) do
+        impText = impText .. "• [" .. scanResults.Important[i].Type .. "] " .. scanResults.Important[i].Name .. "\n"
+    end
+    importantList:SetText(impText)
+end
+
+function exportFullReport()
+    local report = "═══════════════════════════════════════\n"
+    report = report .. "🔍 GF GAME SCANNER - FULL REPORT\n"
+    report = report .. "═══════════════════════════════════════\n\n"
+    
+    report = report .. "📊 STATISTICS:\n"
+    report = report .. "Total Objects Scanned: " .. scanStats.scannedObjects .. "\n"
+    report = report .. "Suspicious Objects: " .. scanStats.suspiciousObjects .. "\n\n"
+    
+    report = report .. "📜 SCRIPTS (" .. (#scanResults.LocalScripts + #scanResults.Scripts) .. "):\n"
+    report = report .. "LocalScripts: " .. #scanResults.LocalScripts .. "\n"
+    report = report .. "Server Scripts: " .. #scanResults.Scripts .. "\n"
+    report = report .. "Module Scripts: " .. #scanResults.ModuleScripts .. "\n\n"
+    
+    report = report .. "📡 REMOTES (" .. (#scanResults.RemoteEvents + #scanResults.RemoteFunctions) .. "):\n"
+    for _, remote in pairs(scanResults.RemoteEvents) do
+        report = report .. "• [Event] " .. remote.Name .. " - " .. remote.Path .. "\n"
+    end
+    for _, remote in pairs(scanResults.RemoteFunctions) do
+        report = report .. "• [Function] " .. remote.Name .. " - " .. remote.Path .. "\n"
+    end
+    report = report .. "\n"
+    
+    report = report .. "🎨 ASSETS:\n"
+    report = report .. "Sounds: " .. #scanResults.Sounds .. "\n"
+    report = report .. "Animations: " .. #scanResults.Animations .. "\n"
+    report = report .. "Meshes: " .. #scanResults.MeshParts .. "\n"
+    report = report .. "Particles: " .. #scanResults.ParticleEmitters .. "\n"
+    report = report .. "Lights: " .. #scanResults.Lights .. "\n\n"
+    
+    report = report .. "🛡️ SECURITY:\n"
+    if #scanResults.AntiCheats > 0 then
+        report = report .. "⚠️ ANTI-CHEAT DETECTED:\n"
+        for _, ac in pairs(scanResults.AntiCheats) do
+            report = report .. "• " .. ac.Name .. " (" .. ac.Type .. ") - " .. ac.Path .. "\n"
         end
-    end
-    
-    return closestPet, closestDist
-end
-
--- ═══════════════════════════════════════
--- 💰 MONEY FUNCTIONS
--- ═══════════════════════════════════════
-
-local function collectAllCash()
-    pcall(function()
-        Remotes.collectAllPetCash:FireServer()
-    end)
-end
-
-local function claimOfflineCash()
-    pcall(function()
-        local offlineTime = Remotes.getOfflineTime:InvokeServer()
-        if offlineTime then
-            local cash = Remotes.getOfflineCash:InvokeServer()
-            Fluent:Notify({
-                Title = "💰 Offline Cash",
-                Content = string.format("Claimed $%s!", tostring(cash)),
-                Duration = 3
-            })
-        end
-    end)
-end
-
-local function startAutoCollect()
-    if connections.AutoCollect then
-        connections.AutoCollect:Disconnect()
-    end
-    
-    connections.AutoCollect = RunService.Heartbeat:Connect(function()
-        if not autoCollectCash then
-            if connections.AutoCollect then
-                connections.AutoCollect:Disconnect()
-                connections.AutoCollect = nil
-            end
-            return
-        end
-        
-        collectAllCash()
-        task.wait(3)
-    end)
-end
-
--- ═══════════════════════════════════════
--- 🥚 BREEDING & FEEDING EXPLOITS
--- ═══════════════════════════════════════
-
-local function startAutoBreed()
-    while autoBreed do
-        pcall(function()
-            local pets = Remotes.getPetInventory:InvokeServer()
-            if pets and #pets >= 2 then
-                -- Intentar criar los primeros 2 pets
-                Remotes.breedRequest:InvokeServer(pets[1].id, pets[2].id)
-            end
-        end)
-        task.wait(10)
-    end
-end
-
-local function startAutoFeed()
-    while autoFeedPets do
-        pcall(function()
-            local pets = Remotes.getPetInventory:InvokeServer()
-            if pets then
-                for _, pet in pairs(pets) do
-                    local FoodService = KnitServices.FoodService
-                    FoodService.RF.FeedPet:InvokeServer(pet.id, "Apple")
-                    task.wait(0.5)
-                end
-            end
-        end)
-        task.wait(30)
-    end
-end
-
--- ═══════════════════════════════════════
--- 🎄 CHRISTMAS EVENT EXPLOITS
--- ═══════════════════════════════════════
-
-local function claimFreeEgg()
-    pcall(function()
-        Remotes.ClaimFeepEgg:FireServer()
-        Fluent:Notify({
-            Title = "🎁 Free Egg Claimed!",
-            Content = "Huevo gratis del evento!",
-            Duration = 2
-        })
-    end)
-end
-
-local function autoClaimFreeEggs()
-    for i = 1, 5 do
-        claimFreeEgg()
-        task.wait(1)
-    end
-end
-
-local function useCandySpin()
-    pcall(function()
-        local FreeSpinsService = KnitServices.FreeSpinsService
-        FreeSpinsService.RE.UseSpin:FireServer()
-    end)
-end
-
-local function autoSpinCandy(times)
-    for i = 1, times do
-        useCandySpin()
-        task.wait(0.5)
-    end
-    Fluent:Notify({
-        Title = "🍬 Candy Spins!",
-        Content = times .. " spins usados!",
-        Duration = 2
-    })
-end
-
-local function buyAllChristmasLassos()
-    local lassos = {"ChristmasLasso", "Frost Lasso", "Peppermint Lasso", "Festive Lasso", "Holiday Lasso"}
-    
-    for _, lasso in pairs(lassos) do
-        pcall(function()
-            local LassoService = KnitServices.LassoService
-            LassoService.RE.BuyLasso:FireServer(lasso)
-            task.wait(0.5)
-        end)
+    else
+        report = report .. "✅ No obvious anti-cheat detected\n"
     end
     
-    Fluent:Notify({
-        Title = "🎄 Christmas Lassos!",
-        Content = "Todos los lassos navideños comprados!",
-        Duration = 3
-    })
-end
-
-local function infiniteCandy()
-    -- Exploit: Duplicar candy temporal
-    pcall(function()
-        local FreeSpinsService = KnitServices.FreeSpinsService
-        for i = 1, 10 do
-            FreeSpinsService.RE.ReplicateCandyTempPass:FireServer(true)
-            task.wait(0.1)
-        end
-        Fluent:Notify({
-            Title = "🍬 Infinite Candy!",
-            Content = "Candy pass replicado!",
-            Duration = 2
-        })
-    end)
-end
-
--- ═══════════════════════════════════════
--- ⚡ SUPER LUCK EXPLOIT
--- ═══════════════════════════════════════
-
-local function activateSuperLuck()
-    pcall(function()
-        Remotes.superLuckSpins:FireServer(100)
-        local ServerLuckService = KnitServices.ServerLuckService
-        ServerLuckService.RE.spawnLuckTierChanged:FireServer(10) -- Max tier
-        
-        Fluent:Notify({
-            Title = "✨ Super Luck!",
-            Content = "Luck al máximo activada!",
-            Duration = 3
-        })
-    end)
-end
-
-local function autoClickerBypass()
-    pcall(function()
-        Remotes.autoClickerState:InvokeServer(true)
-        Fluent:Notify({
-            Title = "🖱️ Auto-Clicker!",
-            Content = "Auto-clicker activado!",
-            Duration = 2
-        })
-    end)
-end
-
--- ═══════════════════════════════════════
--- 🎯 INSTA-CATCH
--- ═══════════════════════════════════════
-
-local function instaCatch(petModel)
-    if catchingPet or not petModel then return end
-    catchingPet = true
+    report = report .. "\n═══════════════════════════════════════\n"
+    report = report .. "Report generated by GF Game Scanner\n"
+    report = report .. "Created by: Gael Fonzar\n"
+    report = report .. "═══════════════════════════════════════"
     
-    pcall(function()
-        Remotes.minigameRequest:InvokeServer(petModel)
-        task.wait(0.1)
-        Remotes.UpdateProgress:FireServer(100)
-        task.wait(0.1)
-        Remotes.UpdateIndex:FireServer(petModel)
-        
-        Fluent:Notify({
-            Title = "✅ Captured!",
-            Content = petModel.Name .. " capturado!",
-            Duration = 2
-        })
-    end)
-    
-    task.wait(1)
-    catchingPet = false
-end
-
-local function startAutoTPCatch(rarityFilter)
-    while autoTPEnabled do
-        local petData, dist = getClosestPet(rarityFilter)
-        
-        if petData and dist then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = CFrame.new(petData.position + Vector3.new(0, 5, 0))
-                task.wait(0.3)
-                
-                if instaCatchEnabled then
-                    instaCatch(petData.model)
-                    task.wait(2)
-                else
-                    task.wait(1)
-                end
-            end
-        else
-            task.wait(1)
-        end
-    end
+    setclipboard(report)
+    Library:Notify('Full report copied to clipboard!', 4)
 end
 
 -- ═══════════════════════════════════════
--- 👁️ ESP SYSTEM (FIXED)
+-- ⚙️ SETTINGS
 -- ═══════════════════════════════════════
+local MenuGroup = Tabs.Scanner:AddRightGroupbox('Menu Settings')
+MenuGroup:AddButton('Unload Scanner', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
 
-local function createESP(petData)
-    if espObjects[petData.model] then return end
-    
-    if espRarity ~= "All" and petData.rarity ~= espRarity then
-        return
-    end
-    
-    pcall(function()
-        local pet = petData.model
-        local petRoot = pet:FindFirstChild("HumanoidRootPart")
-        if not petRoot then return end
-        
-        local color = rarityColors[petData.rarity] or Color3.fromRGB(255, 255, 255)
-        
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "GF_ESP"
-        highlight.Adornee = pet
-        highlight.FillColor = color
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.Parent = pet
-        
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "GF_ESP_Label"
-        billboard.Adornee = petRoot
-        billboard.Size = UDim2.new(0, 200, 0, 80)
-        billboard.StudsOffset = Vector3.new(0, 4, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = petRoot
-        
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, 0, 0.4, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = petData.name
-        nameLabel.TextColor3 = color
-        nameLabel.TextStrokeTransparency = 0.5
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.TextSize = 14
-        nameLabel.Parent = billboard
-        
-        local rarityLabel = Instance.new("TextLabel")
-        rarityLabel.Size = UDim2.new(1, 0, 0.3, 0)
-        rarityLabel.Position = UDim2.new(0, 0, 0.4, 0)
-        rarityLabel.BackgroundTransparency = 1
-        rarityLabel.Text = "⭐ " .. petData.rarity
-        rarityLabel.TextColor3 = color
-        rarityLabel.TextStrokeTransparency = 0.5
-        rarityLabel.Font = Enum.Font.Gotham
-        rarityLabel.TextSize = 12
-        rarityLabel.Parent = billboard
-        
-        local distLabel = Instance.new("TextLabel")
-        distLabel.Size = UDim2.new(1, 0, 0.3, 0)
-        distLabel.Position = UDim2.new(0, 0, 0.7, 0)
-        distLabel.BackgroundTransparency = 1
-        distLabel.Text = "0 studs"
-        distLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-        distLabel.TextStrokeTransparency = 0.5
-        distLabel.Font = Enum.Font.Gotham
-        distLabel.TextSize = 10
-        distLabel.Parent = billboard
-        
-        espObjects[pet] = {
-            highlight = highlight,
-            billboard = billboard,
-            distLabel = distLabel
-        }
-    end)
-end
+Library.ToggleKeybind = Options.MenuKeybind
 
-local function createChristmasESP(xmasPet)
-    if christmasESPObjects[xmasPet.model] then return end
-    
-    pcall(function()
-        local pet = xmasPet.model
-        local petRoot = pet:FindFirstChild("HumanoidRootPart")
-        if not petRoot then return end
-        
-        local color = Color3.fromRGB(255, 0, 0)
-        
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "GF_XMAS_ESP"
-        highlight.Adornee = pet
-        highlight.FillColor = color
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.Parent = pet
-        
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "GF_XMAS_Label"
-        billboard.Adornee = petRoot
-        billboard.Size = UDim2.new(0, 200, 0, 50)
-        billboard.StudsOffset = Vector3.new(0, 4, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = petRoot
-        
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = "🎄 " .. xmasPet.name
-        label.TextColor3 = color
-        label.TextStrokeTransparency = 0.5
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 14
-        label.Parent = billboard
-        
-        christmasESPObjects[pet] = {highlight = highlight, billboard = billboard}
-    end)
-end
+ThemeManager:SetLibrary(Library)
+ThemeManager:SetFolder('GFHub')
+ThemeManager:ApplyToTab(Tabs.Scanner)
 
-local function removeESP(pet)
-    if espObjects[pet] then
-        pcall(function()
-            if espObjects[pet].highlight then espObjects[pet].highlight:Destroy() end
-            if espObjects[pet].billboard then espObjects[pet].billboard:Destroy() end
-        end)
-        espObjects[pet] = nil
-    end
-end
+-- Startup
+Library:Notify('🔍 GF Game Scanner loaded!', 3)
+Library:Notify('Press START FULL SCAN to begin', 4)
 
-local function removeChristmasESP(pet)
-    if christmasESPObjects[pet] then
-        pcall(function()
-            if christmasESPObjects[pet].highlight then christmasESPObjects[pet].highlight:Destroy() end
-            if christmasESPObjects[pet].billboard then christmasESPObjects[pet].billboard:Destroy() end
-        end)
-        christmasESPObjects[pet] = nil
-    end
-end
-
-local function updateESP()
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local myPos = char.HumanoidRootPart.Position
-    
-    local pets = getRoamingPets()
-    
-    for _, petData in pairs(pets) do
-        if espEnabled then
-            createESP(petData)
-            
-            if espObjects[petData.model] and espObjects[petData.model].distLabel then
-                local dist = math.floor((myPos - petData.position).Magnitude)
-                espObjects[petData.model].distLabel.Text = dist .. " studs"
-            end
-        else
-            removeESP(petData.model)
-        end
-    end
-    
-    for pet, _ in pairs(espObjects) do
-        if not pet.Parent then
-            removeESP(pet)
-        end
-    end
-end
-
-local function updateChristmasESP()
-    local xmasPets = getChristmasPets()
-    
-    for _, xmasPet in pairs(xmasPets) do
-        if christmasESPEnabled then
-            createChristmasESP(xmasPet)
-        else
-            removeChristmasESP(xmasPet.model)
-        end
-    end
-    
-    for pet, _ in pairs(christmasESPObjects) do
-        if not pet.Parent then
-            removeChristmasESP(pet)
-        end
-    end
-end
-
--- ═══════════════════════════════════════
--- 🚀 MOVEMENT
--- ═══════════════════════════════════════
-
-local function enableSpeed()
-    if connections.Speed then
-        connections.Speed:Disconnect()
-    end
-    
-    connections.Speed = RunService.Heartbeat:Connect(function()
-        if not speedBoostEnabled then
-            if connections.Speed then
-                connections.Speed:Disconnect()
-                connections.Speed = nil
-            end
-            return
-        end
-        
-        local char = player.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.WalkSpeed = walkSpeed
-            end
-        end
-    end)
-end
-
--- ═══════════════════════════════════════
--- 🎨 UI CREATION
--- ═══════════════════════════════════════
-
-local Window = Fluent:CreateWindow({
-    Title = "🦁 Catch & Tame Hub v3.0",
-    SubTitle = "by Gael Fonzar - ESP FIXED",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(600, 580),
-    Acrylic = false,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.RightShift
-})
-
--- Apply Dark Theme
-pcall(function()
-    local gui = game:GetService("CoreGui"):FindFirstChild("FluentUI") or player.PlayerGui:FindFirstChild("FluentUI")
-    if gui then
-        for _, obj in pairs(gui:GetDescendants()) do
-            if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                obj.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            end
-            if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                obj.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            end
-            if obj:IsA("TextLabel") and obj.Name:find("Title") then
-                obj.TextColor3 = Color3.fromRGB(255, 50, 50)
-            end
-        end
-    end
-end)
-
--- Create Tabs
-local Tabs = {
-    Main = Window:AddTab({ Title = "🏠 Main", Icon = "home" }),
-    Catch = Window:AddTab({ Title = "🎯 Auto-Catch", Icon = "target" }),
-    Money = Window:AddTab({ Title = "💰 Money", Icon = "dollar-sign" }),
-    Christmas = Window:AddTab({ Title = "🎄 Christmas", Icon = "gift" }),
-    Exploits = Window:AddTab({ Title = "⚡ Exploits", Icon = "zap" }),
-    Visual = Window:AddTab({ Title = "👁️ ESP", Icon = "eye" }),
-    Movement = Window:AddTab({ Title = "🚀 Movement", Icon = "wind" }),
-    Settings = Window:AddTab({ Title = "⚙️ Settings", Icon = "settings" })
-}
-
--- ═══════════════════════════════════════
--- 🏠 MAIN TAB
--- ═══════════════════════════════════════
-
-Tabs.Main:AddParagraph({
-    Title = "🦁 Catch & Tame Hub v3.0",
-    Content = "✅ ESP ARREGLADO - Detecta rarezas REALES\n✅ Christmas ESP añadido\n✅ Nuevos exploits útiles\n✅ Auto-Breed & Feed"
-})
-
-Tabs.Main:AddButton({
-    Title = "💰 Claim Offline Cash",
-    Callback = function()
-        claimOfflineCash()
-    end
-})
-
-Tabs.Main:AddButton({
-    Title = "💰 Collect All Cash",
-    Callback = function()
-        collectAllCash()
-        Fluent:Notify({Title = "💰 Collected!", Content = "Cash recolectado!", Duration = 2})
-    end
-})
-
--- ═══════════════════════════════════════
--- 🎯 CATCH TAB
--- ═══════════════════════════════════════
-
-Tabs.Catch:AddParagraph({
-    Title = "🎯 Auto-Catch System",
-    Content = "Sistema de captura con detección real de rarezas"
-})
-
-Tabs.Catch:AddToggle("InstaCatch", {
-    Title = "⚡ Insta-Catch",
-    Default = false,
-    Callback = function(Value)
-        instaCatchEnabled = Value
-        if Value then
-            Fluent:Notify({Title = "⚡ Insta-Catch ON", Content = "Captura instantánea!", Duration = 2})
-        end
-    end
-})
-
-Tabs.Catch:AddDropdown("RarityFilter", {
-    Title = "🎯 Filtro de Rareza",
-    Values = {"All", "Legendary", "Mythic", "Epic", "Rare", "Uncommon", "Common", "Christmas"},
-    Default = 1,
-    Callback = function(Value)
-        espRarity = Value
-        Fluent:Notify({Title = "🎯 Filtro: " .. Value, Content = "Solo capturará: " .. Value, Duration = 2})
-    end
-})
-
-Tabs.Catch:AddToggle("AutoTP", {
-    Title = "🚀 Auto-TP & Catch",
-    Default = false,
-    Callback = function(Value)
-        autoTPEnabled = Value
-        if Value then
-            Fluent:Notify({Title = "🚀 Auto-TP ON", Content = "Capturando: " .. espRarity, Duration = 3})
-            task.spawn(function() startAutoTPCatch(espRarity) end)
-        end
-    end
-})
-
-Tabs.Catch:AddButton({
-    Title = "📍 TP to Nearest Pet",
-    Callback = function()
-        local petData, dist = getClosestPet(espRarity)
-        if petData then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = CFrame.new(petData.position + Vector3.new(0, 5, 0))
-                Fluent:Notify({Title = "📍 Teleported!", Content = petData.name .. " [" .. petData.rarity .. "]", Duration = 2})
-            end
-        else
-            Fluent:Notify({Title = "❌ No pets", Content = "No hay: " .. espRarity, Duration = 2})
-        end
-    end
-})
-
--- ═══════════════════════════════════════
--- 💰 MONEY TAB
--- ═══════════════════════════════════════
-
-Tabs.Money:AddToggle("AutoCollect", {
-    Title = "💰 Auto-Collect Cash",
-    Default = false,
-    Callback = function(Value)
-        autoCollectCash = Value
-        if Value then
-            startAutoCollect()
-            Fluent:Notify({Title = "💰 Auto-Collect ON", Content = "Cada 3 segundos", Duration = 2})
-        end
-    end
-})
-
-Tabs.Money:AddButton({
-    Title = "🎁 Claim Daily Reward",
-    Callback = function()
-        pcall(function()
-            KnitServices.DailyRewardsService.RE.ClaimLoginReward:FireServer()
-            Fluent:Notify({Title = "🎁 Daily Reward!", Content = "Reclamada!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Money:AddSection("Pet Management")
-
-Tabs.Money:AddToggle("AutoBreed", {
-    Title = "🥚 Auto-Breed Pets",
-    Description = "Cruza pets automáticamente",
-    Default = false,
-    Callback = function(Value)
-        autoBreed = Value
-        if Value then
-            task.spawn(startAutoBreed)
-            Fluent:Notify({Title = "🥚 Auto-Breed ON", Content = "Cruzando pets...", Duration = 2})
-        end
-    end
-})
-
-Tabs.Money:AddToggle("AutoFeed", {
-    Title = "🍎 Auto-Feed Pets",
-    Description = "Alimenta pets automáticamente",
-    Default = false,
-    Callback = function(Value)
-        autoFeedPets = Value
-        if Value then
-            task.spawn(startAutoFeed)
-            Fluent:Notify({Title = "🍎 Auto-Feed ON", Content = "Alimentando pets...", Duration = 2})
-        end
-    end
-})
-
--- ═══════════════════════════════════════
--- 🎄 CHRISTMAS TAB
--- ═══════════════════════════════════════
-
-Tabs.Christmas:AddButton({
-    Title = "🎁 Claim 5 Free Eggs",
-    Description = "Reclama 5 huevos gratis del evento",
-    Callback = function()
-        autoClaimFreeEggs()
-    end
-})
-
-Tabs.Christmas:AddButton({
-    Title = "🍬 Use 20 Candy Spins",
-    Description = "Usar 20 spins de candy",
-    Callback = function()
-        autoSpinCandy(20)
-    end
-})
-
-Tabs.Christmas:AddButton({
-    Title = "🎄 Buy ALL Christmas Lassos",
-    Description = "Compra todos los lassos navideños",
-    Callback = function()
-        buyAllChristmasLassos()
-    end
-})
-
-Tabs.Christmas:AddButton({
-    Title = "🍬 Infinite Candy Exploit",
-    Description = "Duplica candy pass",
-    Callback = function()
-        infiniteCandy()
-    end
-})
-
-Tabs.Christmas:AddSection("Christmas ESP")
-
-Tabs.Christmas:AddToggle("ChristmasESP", {
-    Title = "🎄 Christmas Pet ESP",
-    Description = "Ver mascotas navideñas",
-    Default = false,
-    Callback = function(Value)
-        christmasESPEnabled = Value
-        if Value then
-            Fluent:Notify({Title = "🎄 Christmas ESP ON", Content = "Mostrando pets navideñas!", Duration = 2})
-        else
-            for pet, _ in pairs(christmasESPObjects) do
-                removeChristmasESP(pet)
-            end
-        end
-    end
-})
-
--- ═══════════════════════════════════════
--- ⚡ EXPLOITS TAB
--- ═══════════════════════════════════════
-
-Tabs.Exploits:AddParagraph({
-    Title = "⚡ Advanced Exploits",
-    Content = "Vulnerabilidades y exploits avanzados"
-})
-
-Tabs.Exploits:AddSection("Luck Exploits")
-
-Tabs.Exploits:AddButton({
-    Title = "✨ Activate Super Luck",
-    Description = "Luck al máximo para mejores capturas",
-    Callback = function()
-        activateSuperLuck()
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "🎰 Trait Machine Exploit",
-    Description = "Procesa rasgos gratis",
-    Callback = function()
-        pcall(function()
-            Remotes.processTraitMachine:InvokeServer("SuperLuck", 0)
-            Fluent:Notify({Title = "🎰 Trait Machine!", Content = "Procesando gratis!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddSection("Gamepass Bypass")
-
-Tabs.Exploits:AddButton({
-    Title = "🖱️ Enable Auto-Clicker",
-    Description = "Activa auto-clicker sin gamepass",
-    Callback = function()
-        autoClickerBypass()
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "⚡ Infinite Riding Potion",
-    Description = "Usa pociones infinitas",
-    Callback = function()
-        pcall(function()
-            for i = 1, 10 do
-                Remotes.useRidingPotion:InvokeServer()
-                task.wait(0.1)
-            end
-            Fluent:Notify({Title = "⚡ Riding Potion!", Content = "10 pociones usadas!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddSection("Weather Exploits")
-
-Tabs.Exploits:AddButton({
-    Title = "⛈️ Trigger Lightning Storm",
-    Description = "Genera tormenta con mascotas raras",
-    Callback = function()
-        pcall(function()
-            Remotes.LightningStrike:FireServer()
-            Remotes.UseTotem:FireServer("Lightning")
-            Fluent:Notify({Title = "⛈️ Lightning Storm!", Content = "Tormenta activada!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "☄️ Spawn Meteor Shower",
-    Description = "Genera lluvia de meteoritos",
-    Callback = function()
-        pcall(function()
-            Remotes.MeteorSpawn:FireServer()
-            Remotes.UseTotem:FireServer("Meteor")
-            Fluent:Notify({Title = "☄️ Meteor Shower!", Content = "Meteoritos cayendo!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "🌌 Cosmic Mutation Event",
-    Description = "Activa mutación cósmica",
-    Callback = function()
-        pcall(function()
-            Remotes.CosmicMutation:FireServer()
-            Fluent:Notify({Title = "🌌 Cosmic Event!", Content = "Mutación activada!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddSection("Instant Actions")
-
-Tabs.Exploits:AddButton({
-    Title = "⏱️ Skip Time Discount",
-    Description = "Salta tiempo de espera gratis",
-    Callback = function()
-        pcall(function()
-            Remotes.skipTimeDiscountAvailable:FireServer()
-            Fluent:Notify({Title = "⏱️ Time Skip!", Content = "Tiempo saltado gratis!", Duration = 2})
-        end)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "🥚 Instant Hatch All Eggs",
-    Description = "Eclosiona todos los huevos al instante",
-    Callback = function()
-        pcall(function()
-            local TimerService = KnitServices.TimerService
-            local eggs = TimerService.RF.GetReadyToHatchEggs:InvokeServer()
-            
-            if eggs then
-                for _, egg in pairs(eggs) do
-                    KnitServices.EggService.RE.InstantHatch:FireServer(egg)
-                    task.wait(0.2)
-                end
-                Fluent:Notify({Title = "🥚 Hatched!", Content = "Todos los huevos eclosionados!", Duration = 2})
-            end
-        end)
-    end
-})
-
--- ═══════════════════════════════════════
--- 👁️ ESP TAB
--- ═══════════════════════════════════════
-
-Tabs.Visual:AddParagraph({
-    Title = "👁️ ESP System - FIXED",
-    Content = "ESP con detección REAL de rarezas del juego"
-})
-
-Tabs.Visual:AddToggle("ESP", {
-    Title = "👁️ Enable ESP",
-    Default = false,
-    Callback = function(Value)
-        espEnabled = Value
-        if Value then
-            Fluent:Notify({Title = "👁️ ESP ON", Content = "Mostrando: " .. espRarity, Duration = 2})
-        else
-            for pet, _ in pairs(espObjects) do
-                removeESP(pet)
-            end
-        end
-    end
-})
-
-Tabs.Visual:AddDropdown("ESPRarity", {
-    Title = "🎯 ESP Rarity Filter",
-    Values = {"All", "Legendary", "Mythic", "Epic", "Rare", "Uncommon", "Common", "Christmas"},
-    Default = 1,
-    Callback = function(Value)
-        espRarity = Value
-        for pet, _ in pairs(espObjects) do
-            removeESP(pet)
-        end
-        Fluent:Notify({Title = "🎯 ESP Filter", Content = "Mostrando: " .. Value, Duration = 2})
-    end
-})
-
-Tabs.Visual:AddSection("Leyenda de Colores")
-
-Tabs.Visual:AddParagraph({
-    Title = "🎨 Colores por Rareza",
-    Content = "🟡 Legendary (Gold)\n🟣 Mythic (Magenta)\n🟪 Epic (Purple)\n🔵 Rare (Blue)\n🟢 Uncommon (Green)\n⚪ Common (White)\n🔴 Christmas (Red)"
-})
-
-Tabs.Visual:AddSection("Debug Info")
-
-Tabs.Visual:AddButton({
-    Title = "🔍 Scan Pet Rarities",
-    Description = "Escanear rarezas de pets cercanas",
-    Callback = function()
-        local pets = getRoamingPets()
-        local rarityCount = {}
-        
-        for _, petData in pairs(pets) do
-            if not rarityCount[petData.rarity] then
-                rarityCount[petData.rarity] = 0
-            end
-            rarityCount[petData.rarity] = rarityCount[petData.rarity] + 1
-        end
-        
-        local report = "🔍 Pets Detectadas:\n\n"
-        for rarity, count in pairs(rarityCount) do
-            report = report .. rarity .. ": " .. count .. "\n"
-        end
-        
-        Fluent:Notify({
-            Title = "🔍 Scan Complete",
-            Content = report,
-            Duration = 5
-        })
-    end
-})
-
--- ═══════════════════════════════════════
--- 🚀 MOVEMENT TAB
--- ═══════════════════════════════════════
-
-Tabs.Movement:AddToggle("Speed", {
-    Title = "⚡ Speed Boost",
-    Default = false,
-    Callback = function(Value)
-        speedBoostEnabled = Value
-        if Value then
-            enableSpeed()
-            Fluent:Notify({Title = "⚡ Speed ON", Content = "Velocidad: " .. walkSpeed, Duration = 2})
-        else
-            local char = player.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then hum.WalkSpeed = 16 end
-            end
-        end
-    end
-})
-
-Tabs.Movement:AddSlider("WalkSpeed", {
-    Title = "Walk Speed",
-    Default = 16,
-    Min = 16,
-    Max = 200,
-    Rounding = 0,
-    Callback = function(Value)
-        walkSpeed = Value
-    end
-})
-
--- ═══════════════════════════════════════
--- ⚙️ SETTINGS TAB
--- ═══════════════════════════════════════
-
-Tabs.Settings:AddButton({
-    Title = "🗑️ Unload Script",
-    Callback = function()
-        for _, conn in pairs(connections) do
-            if conn then conn:Disconnect() end
-        end
-        for pet, _ in pairs(espObjects) do
-            removeESP(pet)
-        end
-        for pet, _ in pairs(christmasESPObjects) do
-            removeChristmasESP(pet)
-        end
-        Fluent:Destroy()
-    end
-})
-
-Tabs.Settings:AddSection("Credits")
-
-Tabs.Settings:AddParagraph({
-    Title = "👤 Catch & Tame Hub v3.0",
-    Content = "Created by: Gael Fonzar\n\n✅ ESP con rarezas REALES\n✅ Christmas ESP\n✅ 15+ Exploits nuevos\n✅ Auto-Breed & Feed\n✅ Weather exploits\n✅ Gamepass bypass"
-})
-
--- ═══════════════════════════════════════
--- 🔄 UPDATE LOOPS
--- ═══════════════════════════════════════
-
-connections.ESP = RunService.RenderStepped:Connect(function()
-    if espEnabled then
-        updateESP()
-    end
-    if christmasESPEnabled then
-        updateChristmasESP()
-    end
-end)
-
--- Final notification
-Fluent:Notify({
-    Title = "🦁 Catch & Tame Hub v3.0",
-    Content = "ESP ARREGLADO + 15 Exploits nuevos!\nPresiona RightShift",
-    Duration = 5
-})
-
-print("════════════════════════════════")
-print("🦁 Catch & Tame Hub v3.0")
+print("═══════════════════════════════════")
+print("🔍 GF Game Scanner Loaded!")
 print("Created by: Gael Fonzar")
-print("════════════════════════════════")
-print("✅ ESP con detección REAL de rarezas")
-print("✅ Christmas Pet ESP")
-print("✅ 15+ Exploits avanzados:")
-print("   • Super Luck")
-print("   • Auto-Breed & Feed")
-print("   • Weather Events")
-print("   • Gamepass Bypass")
-print("   • Instant Hatch")
-print("   • Trait Machine")
-print("   • Infinite Candy")
-print("════════════════════════════════")
+print("═══════════════════════════════════")

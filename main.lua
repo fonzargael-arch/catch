@@ -415,6 +415,9 @@ local SecurityBox = Tabs.Security:AddLeftGroupbox('Security Analysis')
 
 local antiCheatLabel = SecurityBox:AddLabel('Anti-Cheat: Not detected')
 local suspiciousLabel = SecurityBox:AddLabel('Suspicious Objects: 0')
+local securityList = SecurityBox:AddLabel('No security threats detected')
+
+SecurityBox:AddDivider()
 
 SecurityBox:AddButton({
     Text = '📋 Copy Anti-Cheat Info',
